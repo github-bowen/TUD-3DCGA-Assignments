@@ -59,7 +59,13 @@ int main()
 {
     Window window { "Shadow Mapping", glm::ivec2(WIDTH, HEIGHT), OpenGLVersion::GL41 };
 
-    Camera camera { &window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) };
+    //Camera camera { &window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) };
+    std::array<Camera, 2> cameras = {
+        Camera { &window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }, // Main camera
+        Camera { &window, glm::vec3(1.8f, 1.0f, 0.06f), -glm::vec3(1.8f, 1.0f, 0.5f) }          // New camera
+    };
+    int activeCameraIndex = 0;
+
     constexpr float fov = glm::pi<float>() / 4.0f;
     constexpr float aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
     const glm::mat4 mainProjectionMatrix = glm::perspective(fov, aspect, 0.1f, 30.0f);
@@ -74,8 +80,14 @@ int main()
 
         switch (key) {
         case GLFW_KEY_1:
+            activeCameraIndex = 0;
+            cameras[0].setUserInteraction(true);
+            cameras[1].setUserInteraction(false);
             break;
         case GLFW_KEY_2:
+            activeCameraIndex = 1;
+            cameras[0].setUserInteraction(false);
+            cameras[1].setUserInteraction(true);
             break;
         default:
             break;
@@ -176,7 +188,7 @@ int main()
         imgui();
 
         // === Stub code for you to fill in order to render the shadow map ===
-        {
+        
             // Bind the off-screen framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
@@ -194,6 +206,8 @@ int main()
             // .... HERE YOU MUST ADD THE CORRECT UNIFORMS FOR RENDERING THE SHADOW MAP
             // pass samplingmode as uniform
 
+            glm::mat4 lightMVP = mainProjectionMatrix * cameras[1 - activeCameraIndex].viewMatrix();
+            glUniformMatrix4fv(shadowShader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(lightMVP));
 
             // Bind vertex data
             glBindVertexArray(vao);
@@ -205,21 +219,25 @@ int main()
 
             // Unbind the off-screen framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        }
+        
 
         // Bind the shader
         mainShader.bind();
 
-        camera.updateInput();
+        cameras[activeCameraIndex].updateInput();
 
-        const glm::mat4 mvp = mainProjectionMatrix * camera.viewMatrix(); // Assume model matrix is identity.
+        const glm::mat4 mvp = mainProjectionMatrix * cameras[activeCameraIndex].viewMatrix(); // Assume model matrix is identity.
         glUniformMatrix4fv(mainShader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 
         // Set view position
-        const glm::vec3 cameraPos = camera.cameraPos();
+        //const glm::vec3 cameraPos = camera.cameraPos();
         //glUniform3fv(mainShader.getUniformLocation("viewPos"), 1, glm::value_ptr(cameraPos));
 
+        const glm::vec3 lightPos = cameras[1 - activeCameraIndex].cameraPos();  // position of inactive camera
+        glUniform3fv(mainShader.getUniformLocation("lightPos"), 1, glm::value_ptr(lightPos));
+
         // .... HERE YOU MUST ADD THE CORRECT UNIFORMS FOR RENDERING THE MAIN IMAGE
+        glUniformMatrix4fv(mainShader.getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMVP));
         glUniform1i(mainShader.getUniformLocation("samplingMode"), samplingMode);
         glUniform1i(mainShader.getUniformLocation("peelingMode"), peelingMode);
         glUniform1i(mainShader.getUniformLocation("lightMode"), lightMode);
