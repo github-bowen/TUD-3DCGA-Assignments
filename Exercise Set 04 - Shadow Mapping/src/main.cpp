@@ -19,8 +19,11 @@ DISABLE_WARNINGS_POP()
 #include "imgui/imgui.h"
 
 // Configuration
-constexpr int WIDTH = 800;
-constexpr int HEIGHT = 600;
+//constexpr int WIDTH = 800;
+//constexpr int HEIGHT = 600;
+
+constexpr int WIDTH = 1200;
+constexpr int HEIGHT = 900;
 
 
 bool show_imgui = true;
@@ -62,7 +65,7 @@ int main()
     //Camera camera { &window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) };
     std::array<Camera, 2> cameras = {
         Camera { &window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }, // Main camera
-        Camera { &window, glm::vec3(1.8f, 1.0f, 0.06f), -glm::vec3(1.8f, 1.0f, 0.5f) }          // New camera
+        Camera { &window, glm::vec3(1.8f, 1.0f, 0.6f), -glm::vec3(1.8f, 1.0f, 0.5f) }          // New camera
     };
     int activeCameraIndex = 0;
 
