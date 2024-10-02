@@ -23,7 +23,7 @@ DISABLE_WARNINGS_POP()
 //constexpr int HEIGHT = 600;
 
 constexpr int WIDTH = 1200;
-constexpr int HEIGHT = 900;
+constexpr int HEIGHT = 800;
 
 
 bool show_imgui = true;
@@ -257,6 +257,11 @@ int main()
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texShadow);
         glUniform1i(mainShader.getUniformLocation("texShadow"), 0);
+
+        // Bind the shadow map to texture slot 1
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texLight);
+        glUniform1i(mainShader.getUniformLocation("texLight"), 1);
 
         // Set viewport size
         glViewport(0, 0, WIDTH, HEIGHT);

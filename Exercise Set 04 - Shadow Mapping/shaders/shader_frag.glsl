@@ -3,15 +3,16 @@
 // Global variables for lighting calculations.
 //uniform vec3 viewPos;
 uniform sampler2D texShadow;
+uniform sampler2D texLight;
 
 // scene uniforms
 uniform mat4 lightMVP;
 uniform vec3 lightPos;
 // config uniforms, use these to control the shader from UI
-uniform int samplingMode;
+uniform int samplingMode;  // 0: Single Sample, 1: PCF
 uniform int peelingMode = 0;
-uniform int lightMode = 0;
-uniform int lightColorMode = 0;
+uniform int lightMode;  // 0: Normal, 1: Spotlight
+uniform int lightColorMode;  // 0: White, 1: Textured
 
 
 // Bias for shadow comparison to avoid self-shadowing
@@ -30,6 +31,8 @@ in vec3 fragNormal; // World-space normal
 
 // calculate spotlight dimming based on distance from shadow map center
 float spotlightDimming(vec2 shadowMapCoord) {
+
+    if (lightMode == 0) return 1.0;  // normal mode
     
     float distanceFromCenter = distance(shadowMapCoord, vec2(0.5));
 
@@ -43,7 +46,34 @@ float spotlightDimming(vec2 shadowMapCoord) {
 
 
 // calculate the shadow factor
-float shadowTest() {
+float shadowTest(vec2 shadowMapCoord, float currentDepth) {
+
+    if (samplingMode == 0) {
+        // Shadow map value from the corresponding shadow map position
+        float shadowMapDepth = texture(texShadow, shadowMapCoord).x;
+        // if the fragment's depth is greater than the shadow map depth (plus bias), it's in shadow
+        float shadowFactor = currentDepth - bias > shadowMapDepth ? 0 : 1.0;
+        return shadowFactor;
+    } else {  // PCF
+        float shadowFactor = 0.0;
+        vec2 texelSize = 1.0 / textureSize(texShadow, 0);
+        for(int x = -2; x <= 2; ++x) {
+            for(int y = -2; y <= 2; ++y) {
+                vec2 offset = vec2(x, y) * texelSize;
+                float sampleShadowMapDepth = texture(texShadow, shadowMapCoord + offset).x; 
+                shadowFactor += currentDepth - bias > sampleShadowMapDepth ? 0.0 : 1.0;        
+            }    
+        }
+        shadowFactor /= 25.0;  // number of samples: 25
+        return shadowFactor;
+    }
+}
+
+void main()
+{
+    // Output the normal as color.
+    vec3 lightDir = normalize(lightPos - fragPos);
+
     // Transform the fragment position to light space
     vec4 fragLightCoord = lightMVP * vec4(fragPos, 1.0);
 
@@ -59,38 +89,15 @@ float shadowTest() {
     // Shadow map coordinate corresponding to this fragment
     vec2 shadowMapCoord = fragLightCoord.xy;
 
+    // NOTE: calculate different factors
     // Handle spotlight dimming based on distance from shadow map center
     float dimmingFactor = spotlightDimming(shadowMapCoord);
 
-    if (samplingMode == 0) {
-        // Shadow map value from the corresponding shadow map position
-        float shadowMapDepth = texture(texShadow, shadowMapCoord).x;
-        // if the fragment's depth is greater than the shadow map depth (plus bias), it's in shadow
-        float shadowFactor = currentDepth - bias > shadowMapDepth ? 0 : 1.0;
-        return shadowFactor * dimmingFactor;
-    } else {  // PCF
-        float shadowFactor = 0.0;
-        vec2 texelSize = 1.0 / textureSize(texShadow, 0);
-        for(int x = -2; x <= 2; ++x) {
-            for(int y = -2; y <= 2; ++y) {
-                vec2 offset = vec2(x, y) * texelSize;
-                float sampleShadowMapDepth = texture(texShadow, shadowMapCoord + offset).x; 
-                shadowFactor += currentDepth - bias > sampleShadowMapDepth ? 0.0 : 1.0;        
-            }    
-        }
-        shadowFactor /= 25.0;  // number of samples: 25
-        return shadowFactor * dimmingFactor;
-    }
-}
+    float shadowFactor = shadowTest(shadowMapCoord, currentDepth);
 
-void main()
-{
-    // Output the normal as color.
-    vec3 lightDir = normalize(lightPos - fragPos);
-
-    
-    float shadowFactor = shadowTest();
+    // Sample the light color from the light texture using the shadow map coordinates
+    vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : vec3(1.0);
     
 
-    outColor = vec4(vec3(shadowFactor * max(dot(fragNormal, lightDir), 0.0)), 1.0);
+    outColor = vec4(vec3(lightColorFactor* dimmingFactor * shadowFactor * max(dot(fragNormal, lightDir), 0.0)), 1.0);
 }
