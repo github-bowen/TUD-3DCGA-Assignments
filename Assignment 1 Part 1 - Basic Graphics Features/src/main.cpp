@@ -32,12 +32,21 @@ DISABLE_WARNINGS_POP()
 #include <array>
 
 #include <filesystem>
+#include <algorithm>
 
 // Configuration
 const int WIDTH = 1200;
 const int HEIGHT = 800;
 
 bool show_imgui = true;
+bool showShadows = false;
+bool usePCF = false;  // only take effects when showShadows is set to true
+
+const std::array diffuseModes { "debug", "lambert", "toon", "x-toon" };  // common one: "toon"
+const std::array specularModes{ "none", "phong", "blinn-phong", "toon" };
+
+int diffuseMode = 0;
+int specularMode = 0;
 
 struct {
     // Diffuse (Lambert)
@@ -71,6 +80,34 @@ struct Light {
 std::vector<Light> lights {};
 size_t selectedLightIndex = 0;
 
+void addLights() {
+    lights.push_back(Light{ glm::vec3(0, 0, 3), glm::vec3(1) });
+    //selectedLightIndex = lights.size() - 1;
+}
+
+void removeLights() {
+    if (!lights.empty() && selectedLightIndex < lights.size()) {
+        lights.erase(lights.begin() + selectedLightIndex);
+        selectedLightIndex = std::min(lights.size() - 1, selectedLightIndex);
+    }
+}
+
+void resetLights() {
+    lights.clear();
+    lights.push_back(Light{ glm::vec3(0, 0, 3), glm::vec3(1) });
+    selectedLightIndex = 0;
+}
+
+void selectNextLight() {
+    selectedLightIndex = (selectedLightIndex + 1) % lights.size();
+}
+
+void selectPreviousLight() {
+    if (selectedLightIndex == 0)
+        selectedLightIndex = lights.size() - 1;
+    else
+        --selectedLightIndex;
+}
 
 void imgui()
 {
@@ -81,6 +118,67 @@ void imgui()
 
     ImGui::Begin("Final project part 1 : Modern Shading");
     ImGui::Text("Press \\ to show/hide this menu");
+
+    /* NOTE: Materials */
+
+    ImGui::Separator();
+    ImGui::Text("Material parameters");
+    ImGui::SliderFloat("Shininess", &shadingData.shininess, 0.0f, 100.f);
+
+    // Color pickers for Kd and Ks
+    ImGui::ColorEdit3("Kd", &shadingData.kd[0]);
+    ImGui::ColorEdit3("Ks", &shadingData.ks[0]);
+
+    ImGui::SliderInt("Toon Discretization", &shadingData.toonDiscretize, 1, 10);
+    ImGui::SliderFloat("Toon Specular Threshold", &shadingData.toonSpecularThreshold, 0.0f, 1.0f);
+
+    /* NOTE: Lights */
+
+    ImGui::Separator();
+    ImGui::Text("Lights");
+
+    // Display lights in scene
+    std::vector<std::string> itemStrings = {};
+    for (size_t i = 0; i < lights.size(); i++) {
+        auto string = "Light " + std::to_string(i);
+        itemStrings.push_back(string);
+    }
+
+    std::vector<const char*> itemCStrings = {};
+    for (const auto& string : itemStrings) {
+        itemCStrings.push_back(string.c_str());
+    }
+
+    int tempSelectedItem = static_cast<int>(selectedLightIndex);
+    if (ImGui::ListBox("Lights", &tempSelectedItem, itemCStrings.data(), (int)itemCStrings.size(), 4)) {
+        selectedLightIndex = static_cast<size_t>(tempSelectedItem);
+    }
+
+    if (!lights.empty()) {
+        Light& selectedLight = lights[selectedLightIndex];
+        ImGui::DragFloat3("Position", &selectedLight.position[0], 0.1f);
+        ImGui::ColorEdit3("Color", &selectedLight.color[0]);
+    }
+
+    if (ImGui::Button("Add Lights")) addLights();  ImGui::SameLine();
+    if (ImGui::Button("Remove Lights")) removeLights();  ImGui::SameLine();
+    if (ImGui::Button("Reset Lights")) resetLights();
+
+    /* NOTE: Render Settings */
+
+    ImGui::Separator();
+    ImGui::Text("Rendering");
+    ImGui::Combo("Diffuse Mode", &diffuseMode, diffuseModes.data(), (int)diffuseModes.size());
+    ImGui::Combo("Specular Mode", &specularMode, specularModes.data(), (int)specularModes.size());
+
+    /* NOTE: Shadows Setting*/
+    
+    ImGui::Text("Shawdows Setting");
+    ImGui::Checkbox("Shadows", &showShadows);
+
+    ImGui::BeginDisabled(!showShadows);
+    ImGui::Checkbox("PCF", &usePCF);
+    ImGui::EndDisabled();
 
     ImGui::End();
     ImGui::Render();
@@ -115,6 +213,7 @@ int main(int argc, char** argv)
     // read toml file from argument line (otherwise use default file)
     std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
     //std::string config_filename = "resources/test_scene.toml";
+    //std::string config_filename = "resources/scene2.toml";
 
     // parse initial scene config
     toml::table config;
@@ -251,8 +350,8 @@ int main(int argc, char** argv)
 
         // Set vertex attribute pointers for position and normal
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
-        glEnableVertexAttribArray(0);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+        glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
 
         glBindVertexArray(0); // Unbind the VAO for now
