@@ -10,7 +10,7 @@ uniform mat4 lightMVP;
 uniform vec3 lightPos;
 // config uniforms, use these to control the shader from UI
 uniform int samplingMode;  // 0: Single Sample, 1: PCF
-uniform int peelingMode = 0;
+uniform int peelingMode = 0;  // 1: peeling mode
 uniform int lightMode;  // 0: Normal, 1: Spotlight
 uniform int lightColorMode;  // 0: White, 1: Textured
 
@@ -97,7 +97,15 @@ void main()
 
     // Sample the light color from the light texture using the shadow map coordinates
     vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : vec3(1.0);
-    
+
+    if (peelingMode == 1 && shadowFactor > 0.9) {  // optional: distance(shadowMapCoord, vec2(0.5)) < 0.5
+        discard;
+    }
+
+    if (peelingMode == 1) {  // for those occluded points, should be bright
+        shadowFactor = 1.0;
+        dimmingFactor = 1.0;
+    }
 
     outColor = vec4(vec3(lightColorFactor* dimmingFactor * shadowFactor * max(dot(fragNormal, lightDir), 0.0)), 1.0);
 }
