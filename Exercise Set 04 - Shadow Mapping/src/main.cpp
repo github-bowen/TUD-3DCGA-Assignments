@@ -65,7 +65,7 @@ int main()
     //Camera camera { &window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) };
     std::array<Camera, 2> cameras = {
         Camera { &window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }, // Main camera
-        Camera { &window, glm::vec3(1.8f, 1.0f, 0.6f), -glm::vec3(1.8f, 1.0f, 0.5f) }          // New camera
+        Camera { &window, glm::vec3(3.8f, 2.0f, -2), -glm::vec3(3.8f, 2.0f, -2) }          // New camera
     };
     int activeCameraIndex = 0;
 
@@ -122,8 +122,8 @@ int main()
     glBindTexture(GL_TEXTURE_2D, 0);
 
     // Load mesh from disk.
-    //const Mesh mesh = mergeMeshes(loadMesh(RESOURCE_ROOT "resources/scene.obj"));
-    const Mesh mesh = mergeMeshes(loadMesh(RESOURCE_ROOT "resources/sceneWithBox.obj"));
+    const Mesh mesh = mergeMeshes(loadMesh(RESOURCE_ROOT "resources/scene.obj"));
+    //const Mesh mesh = mergeMeshes(loadMesh(RESOURCE_ROOT "resources/sceneWithBox.obj"));
 
     // Create Element(Index) Buffer Object and Vertex Buffer Objects.
     // Create Vertex Buffer Object and Index Buffer Objects.

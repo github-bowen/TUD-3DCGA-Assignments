@@ -40,7 +40,7 @@ float spotlightDimming(vec2 shadowMapCoord) {
     if (distanceFromCenter >= 0.5) return 0.0;
 
     // Otherwise, calculate the dimming factor, scaling the distance and raising to the power
-    float dimmingFactor = pow(1.0 - (distanceFromCenter / 0.5), spotlightPower);
+    float dimmingFactor = pow(1.0 - (distanceFromCenter / 0.5), spotlightPower);  // 0.5 - distanceFromCenter;
     return dimmingFactor;
 }
 
@@ -57,14 +57,14 @@ float shadowTest(vec2 shadowMapCoord, float currentDepth) {
     } else {  // PCF
         float shadowFactor = 0.0;
         vec2 texelSize = 1.0 / textureSize(texShadow, 0);
-        for(int x = -2; x <= 2; ++x) {
-            for(int y = -2; y <= 2; ++y) {
+        for(int x = -1; x <= 1; ++x) {
+            for(int y = -1; y <= 1; ++y) {
                 vec2 offset = vec2(x, y) * texelSize;
                 float sampleShadowMapDepth = texture(texShadow, shadowMapCoord + offset).x; 
                 shadowFactor += currentDepth - bias > sampleShadowMapDepth ? 0.0 : 1.0;        
             }    
         }
-        shadowFactor /= 25.0;  // number of samples: 25
+        shadowFactor /= 9.0;  // number of samples: 9
         return shadowFactor;
     }
 }
