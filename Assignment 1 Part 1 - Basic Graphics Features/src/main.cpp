@@ -31,6 +31,8 @@ DISABLE_WARNINGS_POP()
 #include <vector>
 #include <array>
 
+#include <filesystem>
+
 // Configuration
 const int WIDTH = 1200;
 const int HEIGHT = 800;
@@ -112,6 +114,7 @@ int main(int argc, char** argv)
 
     // read toml file from argument line (otherwise use default file)
     std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
+    //std::string config_filename = "resources/test_scene.toml";
 
     // parse initial scene config
     toml::table config;
@@ -131,7 +134,7 @@ int main(int argc, char** argv)
     // read lights
     lights = std::vector<Light> {};
     size_t num_lights = config["lights"]["positions"].as_array()->size();
-    std::cout << num_lights << std::endl;
+    std::cout << "number of lights: " << num_lights << std::endl;
 
     for (size_t i = 0; i < num_lights; ++i) {
         auto pos = tomlArrayToVec3(config["lights"]["positions"][i].as_array()).value();
@@ -169,112 +172,144 @@ int main(int argc, char** argv)
     trackball.setCamera(look_at, rotations, dist);
 
     // read mesh
+    std::vector<Mesh> meshes;
+    size_t currentFrame = 0;
     bool animated = config["mesh"]["animated"].value_or(false);
-    auto mesh_path = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/dragon.obj");
 
-    std::cout << mesh_path << std::endl;
+    if (animated) {
+        // Read all .obj files from the directory
+        std::string folderPath = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/meshes");
 
-    const Mesh mesh = loadMesh(mesh_path)[0];
+        for (const auto& entry : std::filesystem::directory_iterator(folderPath)) {
+            if (entry.path().extension() == ".obj") {
+                // Load the .obj mesh and store in the meshes vector
+                const Mesh mesh = loadMesh(entry.path().string())[0];
+                meshes.push_back(mesh);
+            }
+        }
+
+        if (meshes.empty()) {
+            std::cerr << "No meshes found in the directory for animation." << std::endl;
+            return EXIT_FAILURE;
+        }
+    } else {
+        // Load a single static .obj file
+        std::string mesh_path = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/dragon.obj");
+        meshes.push_back(loadMesh(mesh_path)[0]);
+    }
+
+    //auto mesh_path = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/dragon.obj");
+    //std::cout << mesh_path << std::endl;
+    //const Mesh mesh = loadMesh(mesh_path)[0];
 
     window.registerKeyCallback([&](int key, int /* scancode */, int action, int /* mods */) {
         if (key == '\\' && action == GLFW_PRESS) {
             show_imgui = !show_imgui;
         }
 
+        if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS) {
+            // Advance to next frame in animation
+            if (animated) {
+                currentFrame = (currentFrame + 1) % meshes.size();
+                std::cout << "Current Frame: " << currentFrame << std::endl;
+            }
+        }
+
         if (action != GLFW_RELEASE)
             return;
     });
 
-    const Shader debugShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/debug_frag.glsl").build();
-   
-    // Create Vertex Buffer Object and Index Buffer Objects.
-    GLuint vbo;
+    // Shader setup - this should happen only once, not in the loop
+    const Shader debugShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl")
+        .addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/debug_frag.glsl")
+        .build();
 
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Vertex)), mesh.vertices.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Store VBO, IBO, VAO for each mesh
+    std::vector<GLuint> vbos(meshes.size());
+    std::vector<GLuint> ibos(meshes.size());
+    std::vector<GLuint> vaos(meshes.size());
 
-    GLuint ibo;
-    // Create index buffer object (IBO)
-    glGenBuffers(1, &ibo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.triangles.size() * sizeof(decltype(Mesh::triangles)::value_type)), mesh.triangles.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    // Initialize the buffers for all meshes
+    for (size_t i = 0; i < meshes.size(); ++i) {
+        const Mesh& mesh = meshes[i];
 
-    // Bind vertex data to shader inputs using their index (location).
-    // These bindings are stored in the Vertex Array Object.
-    GLuint vao;
-    // Create VAO and bind it so subsequent creations of VBO and IBO are bound to this VAO
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+        // Create and bind buffers
+        glGenBuffers(1, &vbos[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vbos[i]);
+        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Vertex)), mesh.vertices.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // The position and normal vectors should be retrieved from the specified Vertex Buffer Object.
-    // The stride is the distance in bytes between vertices. We use the offset to point to the normals
-    // instead of the positions.
-    // Tell OpenGL that we will be using vertex attributes 0 and 1.
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
+        glGenBuffers(1, &ibos[i]);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibos[i]);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.triangles.size() * sizeof(decltype(Mesh::triangles)::value_type)), mesh.triangles.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    // This is where we would set the attribute pointers, if apple supported it.
+        glGenVertexArrays(1, &vaos[i]);
+        glBindVertexArray(vaos[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vbos[i]);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibos[i]);
 
-    glBindVertexArray(0);
+        // Set vertex attribute pointers for position and normal
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+        glEnableVertexAttribArray(1);
 
-    // Enable depth testing.
-    glEnable(GL_DEPTH_TEST);
+        glBindVertexArray(0); // Unbind the VAO for now
+    }
 
-    // Main loop.
+    // Main render loop
     while (!window.shouldClose()) {
         window.updateInput();
 
         imgui();
 
-        // Clear the framebuffer to black and depth to maximum value (ranges from [-1.0 to +1.0]).
+        // Clear the framebuffer and depth buffer
         glViewport(0, 0, window.getWindowSize().x, window.getWindowSize().y);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Set model/view/projection matrix.
+        // Camera/view/projection settings
         const glm::vec3 cameraPos = trackball.position();
-        const glm::mat4 model { 1.0f };
-
+        const glm::mat4 model{ 1.0f };
         const glm::mat4 view = trackball.viewMatrix();
         const glm::mat4 projection = trackball.projectionMatrix();
         const glm::mat4 mvp = projection * view * model;
 
-        auto render = [&](const Shader &shader) {
+        // Use the shader
+        debugShader.bind();
+        glUniformMatrix4fv(debugShader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 
-            // Set the model/view/projection matrix that is used to transform the vertices in the vertex shader.
+        auto render = [&](const Shader& shader) {
+            const Mesh& mesh = meshes[currentFrame];  // Select current frame
+
+            // Set the MVP matrix for the current frame
             glUniformMatrix4fv(shader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 
-            // Bind vertex data.
-            glBindVertexArray(vao);
+            // Bind the VAO corresponding to the current frame
+            glBindVertexArray(vaos[currentFrame]);
 
-            // We tell OpenGL what each vertex looks like and how they are mapped to the shader using the names
-            // NOTE: Usually this can be stored in the VAO, since the locations would be the same in all shaders by using the layout(location = ...) qualifier in the shaders, however this does not work on apple devices.
-            glVertexAttribPointer(shader.getAttributeLocation("pos"), 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
-            glVertexAttribPointer(shader.getAttributeLocation("normal"), 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
-
-            // Execute draw command.
+            // Draw the mesh
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.triangles.size()) * 3, GL_UNSIGNED_INT, nullptr);
 
+            // Unbind the VAO
             glBindVertexArray(0);
-        };
+            };
 
-        debugShader.bind();
+
         render(debugShader);
 
-
-        // Present result to the screen.
+        // Present result to the screen
         window.swapBuffers();
     }
 
-    // Be a nice citizen and clean up after yourself.
-    glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ibo);
-    glDeleteVertexArrays(1, &vao);
+    // Cleanup after rendering
+    for (size_t i = 0; i < meshes.size(); ++i) {
+        glDeleteBuffers(1, &vbos[i]);
+        glDeleteBuffers(1, &ibos[i]);
+        glDeleteVertexArrays(1, &vaos[i]);
+    }
 
     return 0;
+
 }
