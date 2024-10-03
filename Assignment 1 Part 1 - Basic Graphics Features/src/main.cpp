@@ -49,7 +49,7 @@ const int HEIGHT = 800;
 
 #define DEBUG_MODE 1
 
-#define ENABLE_AUTOPLAY 1
+#define ENABLE_AUTOPLAY 0
 #define FRAME_DURATION 0.1
 
 bool show_imgui = true;
@@ -190,11 +190,16 @@ void imgui()
     ImGui::Text("Shawdows Setting");
     //ImGui::BeginDisabled(debug || toonxLighting);
     ImGui::Checkbox("Shadows", &showShadows);
-    //ImGui::EndDisabled();
 
     ImGui::BeginDisabled(!showShadows);
     ImGui::Checkbox("PCF", &usePCF);
     ImGui::EndDisabled();
+
+    ImGui::Checkbox("Spotlight", &lights[selectedLightIndex].is_spotlight);
+    ImGui::Checkbox("Light Texture", &lights[selectedLightIndex].has_texture);
+    //ImGui::EndDisabled();
+
+    
 
     ImGui::End();
     ImGui::Render();
@@ -228,8 +233,8 @@ int main(int argc, char** argv)
 
     // read toml file from argument line (otherwise use default file)
     //std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
-    std::string config_filename = "resources/test_scene.toml";
-    //std::string config_filename = "resources/test_scene2.toml";
+    //std::string config_filename = "resources/test_scene.toml";
+    std::string config_filename = "resources/test_scene2.toml";
     //std::string config_filename = "resources/scene2.toml";
 
     // parse initial scene config
@@ -259,10 +264,11 @@ int main(int argc, char** argv)
         auto direction = tomlArrayToVec3(config["lights"]["direction"][i].as_array()).value();
         bool has_texture = config["lights"]["has_texture"][i].value<bool>().value();
 
-        auto tex_path = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/dragon.obj");
+        auto tex_path = std::string(RESOURCE_ROOT) + config["lights"]["texture_path"].value_or("resources/dragon.obj");
         int width = 0, height = 0, sourceNumChannels = 0;// Number of channels in source image. pixels will always be the requested number of channels (3).
         stbi_uc* pixels = nullptr;        
         if (has_texture) {
+            std::cout << "Light Texture: " << has_texture << std::endl;
             pixels = stbi_load(tex_path.c_str(), &width, &height, &sourceNumChannels, STBI_rgb);
         }
 
@@ -573,10 +579,19 @@ int main(int argc, char** argv)
 
         //const glm::mat4 lightViewMatrix = glm::lookAt(light.position, light.position + light.direction, glm::vec3(0.0f, 1.0f, 0.0f));
         //const glm::mat4 lightMVP = mvp * lightViewMatrix;
+
         GLfloat near_plane = 0.5f, far_plane = 30.0f;
         glm::mat4 mainProjectionMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
         glm::mat4 lightViewMatrix = glm::lookAt(light.position, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         const glm::mat4 lightMVP = mainProjectionMatrix * lightViewMatrix * model;
+
+        //GLfloat near_plane = 0.5f, far_plane = 30.0f;
+        //GLfloat fov = glm::radians(45.0f); // Field of view
+        //GLfloat aspectRatio = 1.0f; // Adjust based on your window aspect ratio
+        //glm::mat4 mainProjectionMatrix = glm::perspective(fov, aspectRatio, near_plane, far_plane);
+        //glm::mat4 lightViewMatrix = glm::lookAt(light.position, light.position, glm::vec3(0.0f, 1.0f, 0.0f));
+        //const glm::mat4 lightMVP = mainProjectionMatrix * lightViewMatrix * model;
+
 
         if (showShadows) {
             // Bind the off-screen framebuffer
