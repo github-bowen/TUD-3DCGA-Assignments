@@ -14,7 +14,7 @@ positions = [[0.4, 1.2, 0.2]]
 colors = [[0.9, 0.9, 0.9]]
 is_spotlight = [true]
 direction = [[0.707, 0.0, 0.707]]
-has_texture = [false]
+has_texture = [true]
 texture_path = ["resources/smiley.png"]
 
 
@@ -27,5 +27,5 @@ fovy = 50.0
 [render_settings]
 diffuse_model = "debug" # or "lambert" or "toon" or "x-toon"
 specular_model = "none" # or "phong" or "blinn-phong" or "toon"
-shadows = true # or false
+shadows = false # or false
 pcf = true # or false

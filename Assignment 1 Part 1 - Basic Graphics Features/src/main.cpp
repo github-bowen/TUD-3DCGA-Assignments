@@ -38,6 +38,23 @@ DISABLE_WARNINGS_POP()
 const int WIDTH = 1200;
 const int HEIGHT = 800;
 
+
+//bool debug = true;
+//bool diffuseLighting = false;
+//bool phongSpecularLighting = false;
+//bool blinnPhongSpecularLighting = false;
+//bool toonLightingDiffuse = false;
+//bool toonLightingSpecular = false;
+//bool toonxLighting = false;
+#define debug (diffuseMode == 0)
+#define diffuseLighting (diffuseMode == 1)
+#define toonLightingDiffuse (diffuseMode == 2)
+#define toonxLighting (diffuseMode == 3)
+
+#define phongSpecularLighting (specularMode == 1)
+#define blinnPhongSpecularLighting (specularMode == 2)
+#define toonLightingSpecular (specularMode == 3)
+
 bool show_imgui = true;
 bool showShadows = false;
 bool usePCF = false;  // only take effects when showShadows is set to true
@@ -104,7 +121,7 @@ void selectNextLight() {
 
 void selectPreviousLight() {
     if (selectedLightIndex == 0)
-        selectedLightIndex = lights.size() - 1;
+        selectedLightIndex = std::max((int)lights.size() - 1, 0);
     else
         --selectedLightIndex;
 }
@@ -211,8 +228,9 @@ int main(int argc, char** argv)
 {
 
     // read toml file from argument line (otherwise use default file)
-    std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
+    //std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
     //std::string config_filename = "resources/test_scene.toml";
+    std::string config_filename = "resources/test_scene2.toml";
     //std::string config_filename = "resources/scene2.toml";
 
     // parse initial scene config
@@ -282,7 +300,7 @@ int main(int argc, char** argv)
         for (const auto& entry : std::filesystem::directory_iterator(folderPath)) {
             if (entry.path().extension() == ".obj") {
                 // Load the .obj mesh and store in the meshes vector
-                const Mesh mesh = loadMesh(entry.path().string())[0];
+                const Mesh mesh = mergeMeshes(loadMesh(entry.path().string()));
                 meshes.push_back(mesh);
             }
         }
@@ -294,7 +312,7 @@ int main(int argc, char** argv)
     } else {
         // Load a single static .obj file
         std::string mesh_path = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/dragon.obj");
-        meshes.push_back(loadMesh(mesh_path)[0]);
+        meshes.push_back(mergeMeshes(loadMesh(mesh_path)));
     }
 
     //auto mesh_path = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/dragon.obj");
@@ -319,10 +337,52 @@ int main(int argc, char** argv)
     });
 
     // Shader setup - this should happen only once, not in the loop
-    const Shader debugShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl")
-        .addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/debug_frag.glsl")
-        .build();
+    const Shader lightShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/light_vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/light_frag.glsl").build();
+    
+    const Shader debugShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/debug_frag.glsl").build();
+    const Shader lambertShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/lambert_frag.glsl").build();
+    const Shader phongShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/phong_frag.glsl").build();
+    const Shader blinnPhongShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/blinn_phong_frag.glsl").build();
+    const Shader toonDiffuseShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/toon_diffuse_frag.glsl").build();
+    const Shader toonSpecularShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/toon_specular_frag.glsl").build();
+    const Shader xToonShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/vertex.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/xtoon_frag.glsl").build();
 
+    //const Shader mainShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shader_frag.glsl").build();
+    const Shader shadowShader = ShaderBuilder().addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shadow_vert.glsl").addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shadow_frag.glsl").build();
+
+    /* NOTE: Texture of Lights */
+
+    // Assuming you have a list of lights and each light may have a texture
+    //std::vector<GLuint> lightTextures; 
+
+    //// Initialize textures for each light
+    //for (Light& light : lights) {
+
+    //    if (light.has_texture) {
+    //        Texture& texture = light.texture;
+    //        int texWidth = texture.width, texHeight = texture.height, texChannels = texture.channels;
+    //        stbi_uc* pixels = texture.texture_data;  // Texture data already loaded
+
+    //        GLuint texID;
+    //        glGenTextures(1, &texID);  // Generate a texture ID
+    //        glBindTexture(GL_TEXTURE_2D, texID);
+    //        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+    //        // Set texture parameters
+    //        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    //        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    //        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    //        glBindTexture(GL_TEXTURE_2D, 0);  // Unbind texture
+
+    //        // Associate the generated texture ID with the current light in the map
+    //        lightTextures.push_back(texID);
+    //    }
+    //}
+
+
+    
     // Store VBO, IBO, VAO for each mesh
     std::vector<GLuint> vbos(meshes.size());
     std::vector<GLuint> ibos(meshes.size());
@@ -349,13 +409,68 @@ int main(int argc, char** argv)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibos[i]);
 
         // Set vertex attribute pointers for position and normal
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+        
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
 
         glBindVertexArray(0); // Unbind the VAO for now
     }
+
+    /* NOTE: Shadow Texture */
+
+    // === Create Shadow Texture ===
+    GLuint texShadow;
+    const int SHADOWTEX_WIDTH = 2400;// 2400;
+    const int SHADOWTEX_HEIGHT = 1600;// 1600;
+    glGenTextures(1, &texShadow);
+    glBindTexture(GL_TEXTURE_2D, texShadow);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, SHADOWTEX_WIDTH, SHADOWTEX_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    // Set behaviour for when texture coordinates are outside the [0, 1] range.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Set interpolation for texture sampling (GL_NEAREST for no interpolation).
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // === Create framebuffer for extra texture ===
+    GLuint framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texShadow, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glEnable(GL_DEPTH_TEST);
+
+    /* NOTE: Toon Texture */
+
+    // Load image from disk to CPU memory.
+    int width, height, sourceNumChannels; // Number of channels in source image. pixels will always be the requested number of channels (3).
+    stbi_uc* pixels = stbi_load(RESOURCE_ROOT "resources/toon_map.png", &width, &height, &sourceNumChannels, STBI_rgb);
+
+    // Create a texture on the GPU with 3 channels with 8 bits each.
+    GLuint texToon;
+    glGenTextures(1, &texToon);
+    glBindTexture(GL_TEXTURE_2D, texToon);
+
+    // Set behavior for when texture coordinates are outside the [0, 1] range.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Set interpolation for texture sampling (GL_NEAREST for no interpolation).
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+    // Free the CPU memory after we copied the image to the GPU.
+    stbi_image_free(pixels);
+
+    // Enable depth testing.
+    //glEnable(GL_DEPTH_TEST);
 
     // Main render loop
     while (!window.shouldClose()) {
@@ -363,10 +478,6 @@ int main(int argc, char** argv)
 
         imgui();
 
-        // Clear the framebuffer and depth buffer
-        glViewport(0, 0, window.getWindowSize().x, window.getWindowSize().y);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Camera/view/projection settings
         const glm::vec3 cameraPos = trackball.position();
@@ -375,18 +486,97 @@ int main(int argc, char** argv)
         const glm::mat4 projection = trackball.projectionMatrix();
         const glm::mat4 mvp = projection * view * model;
 
+
+        Light light = lights[selectedLightIndex];  // TODO
+
+        //const glm::mat4 lightViewMatrix = glm::lookAt(light.position, light.position + light.direction, glm::vec3(0.0f, 1.0f, 0.0f));
+        //const glm::mat4 lightMVP = mvp * lightViewMatrix;
+        GLfloat near_plane = 0.5f, far_plane = 30.0f;
+        glm::mat4 mainProjectionMatrix = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+        glm::mat4 lightViewMatrix = glm::lookAt(light.position, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        const glm::mat4 lightMVP = mainProjectionMatrix * lightViewMatrix * model;
+
+        if (showShadows) {
+            // Bind the off-screen framebuffer
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+            // Clear the shadow map and set needed options
+            glClearDepth(1.0);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glEnable(GL_DEPTH_TEST);
+
+            // Bind the shader
+            shadowShader.bind();
+
+            // Set viewport size
+            glViewport(0, 0, SHADOWTEX_WIDTH, SHADOWTEX_HEIGHT);
+
+            // .... HERE YOU MUST ADD THE CORRECT UNIFORMS FOR RENDERING THE SHADOW MAP
+            // pass samplingmode as uniform
+
+            glUniformMatrix4fv(shadowShader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(lightMVP));
+
+            // Bind vertex data
+            glBindVertexArray(vaos[currentFrame]);
+
+            glVertexAttribPointer(shadowShader.getAttributeLocation("pos"), 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+
+            // Execute draw command
+            glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(
+                meshes[currentFrame].triangles.size() * 3), GL_UNSIGNED_INT, nullptr);
+
+            // Unbind the off-screen framebuffer
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+
+        // Clear the framebuffer to black and depth to maximum value (ranges from [-1.0 to +1.0]).
+        glViewport(0, 0, window.getWindowSize().x, window.getWindowSize().y);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+
         // Use the shader
-        debugShader.bind();
-        glUniformMatrix4fv(debugShader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+        //mainShader.bind();
+        //glUniformMatrix4fv(mainShader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 
         auto render = [&](const Shader& shader) {
+
             const Mesh& mesh = meshes[currentFrame];  // Select current frame
+
+            glUniformMatrix4fv(shader.getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMVP));
 
             // Set the MVP matrix for the current frame
             glUniformMatrix4fv(shader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 
+            glUniform1i(shader.getUniformLocation("shadow"), showShadows);
+            glUniform1i(shader.getUniformLocation("pcf"), usePCF);
+            glUniform1i(shader.getUniformLocation("peelingMode"), 0);
+            glUniform1i(shader.getUniformLocation("lightMode"), light.is_spotlight);
+            glUniform1i(shader.getUniformLocation("lightColorMode"), light.has_texture);
+
             // Bind the VAO corresponding to the current frame
             glBindVertexArray(vaos[currentFrame]);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texShadow);
+            glUniform1i(shader.getUniformLocation("texShadow"), 0);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+
+            glViewport(0, 0, SHADOWTEX_WIDTH, SHADOWTEX_HEIGHT);
+
+            // Clear the framebuffer to black and depth to maximum value
+            //glClearDepth(1.0);
+            ////glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
+            //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            //glDisable(GL_CULL_FACE);
+            //glEnable(GL_DEPTH_TEST);
+
+            glClearDepth(1.0);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glEnable(GL_DEPTH_TEST);
 
             // Draw the mesh
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.triangles.size()) * 3, GL_UNSIGNED_INT, nullptr);
@@ -396,11 +586,136 @@ int main(int argc, char** argv)
             };
 
 
-        render(debugShader);
+        if (!debug) {
+            // Draw mesh into depth buffer but disable color writes.
+            glDepthMask(GL_TRUE);
+            glDepthFunc(GL_LEQUAL);
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+            debugShader.bind();
+            render(debugShader);
+
+            // Draw the mesh again for each light / shading model.
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // Enable color writes.
+            glDepthMask(GL_FALSE); // Disable depth writes.
+            glDepthFunc(GL_EQUAL); // Only draw a pixel if it's depth matches the value stored in the depth buffer.
+            glEnable(GL_BLEND); // Enable blending.
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending.
+
+            for (size_t i = 0; i < lights.size(); ++i) {
+                Light& light = lights[i];
+
+                if (i != selectedLightIndex) continue;  //TODO
+
+                // Diffuse Part
+				if (toonxLighting) {
+					xToonShader.bind();
+
+					// === SET YOUR X-TOON UNIFORMS HERE ===
+					// Values that you may want to pass to the shader are stored in light, shadingData and cameraPos and texToon.
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, texToon);
+					glUniform3fv(xToonShader.getUniformLocation("lightPos"), 1, glm::value_ptr(light.position));
+					glUniform3fv(xToonShader.getUniformLocation("cameraPos"), 1, glm::value_ptr(cameraPos));
+					glUniform1f(xToonShader.getUniformLocation("shininess"), shadingData.shininess);
+					
+                    glUniform1i(xToonShader.getUniformLocation("texToon"), 0); // Change xxx to the uniform name that you want to use.
+					render(xToonShader);
+				} else if (toonLightingDiffuse) {
+					toonDiffuseShader.bind();
+
+					// === SET YOUR DIFFUSE TOON UNIFORMS HERE ===
+					// Values that you may want to pass to the shader are stored in light, shadingData.
+					glUniform3fv(toonDiffuseShader.getUniformLocation("lightPos"), 1, glm::value_ptr(light.position));
+					glUniform3fv(toonDiffuseShader.getUniformLocation("lightColor"), 1, glm::value_ptr(light.color));
+					glUniform3fv(toonDiffuseShader.getUniformLocation("kd"), 1, glm::value_ptr(shadingData.kd));
+					glUniform1i(toonDiffuseShader.getUniformLocation("toonDiscretize"), shadingData.toonDiscretize);
+					render(toonDiffuseShader);
+				} else if (diffuseLighting) {
+                    lambertShader.bind();
+                    // === SET YOUR LAMBERT UNIFORMS HERE ===
+                    // Values that you may want to pass to the shader include light.position, light.color and shadingData.kd.
+                    glUniform3fv(lambertShader.getUniformLocation("lightPos"), 1, glm::value_ptr(light.position));
+                    glUniform3fv(lambertShader.getUniformLocation("lightColor"), 1, glm::value_ptr(light.color));
+                    glUniform3fv(lambertShader.getUniformLocation("kd"), 1, glm::value_ptr(shadingData.kd));
+                    render(lambertShader);
+                }
+
+
+                // Specular Part
+				if (toonLightingSpecular) {
+					toonSpecularShader.bind();
+
+					// === SET YOUR SPECULAR TOON UNIFORMS HERE ===
+					// Values that you may want to pass to the shader are stored in light, shadingData and cameraPos.
+					glUniform3fv(toonSpecularShader.getUniformLocation("lightPos"), 1, glm::value_ptr(light.position));
+					//glUniform3fv(toonSpecularShader.getUniformLocation("lightColor"), 1, glm::value_ptr(light.color));
+					//glUniform3fv(toonSpecularShader.getUniformLocation("ks"), 1, glm::value_ptr(shadingData.ks));
+					glUniform1f(toonSpecularShader.getUniformLocation("shininess"), shadingData.shininess);
+					glUniform3fv(toonSpecularShader.getUniformLocation("cameraPos"), 1, glm::value_ptr(cameraPos));
+					glUniform1f(toonSpecularShader.getUniformLocation("toonSpecularThreshold"), shadingData.toonSpecularThreshold);
+					render(toonSpecularShader);
+				} else if (phongSpecularLighting || blinnPhongSpecularLighting) {
+					const Shader& shader = phongSpecularLighting ? phongShader : blinnPhongShader;
+					shader.bind();
+
+					// === SET YOUR PHONG/BLINN PHONG UNIFORMS HERE ===
+					// Values that you may want to pass to the shader are stored in light, shadingData and cameraPos.
+					glUniform3fv(shader.getUniformLocation("lightPos"), 1, glm::value_ptr(light.position));
+					glUniform3fv(shader.getUniformLocation("lightColor"), 1, glm::value_ptr(light.color));
+					glUniform3fv(shader.getUniformLocation("ks"), 1, glm::value_ptr(shadingData.ks));
+					glUniform1f(shader.getUniformLocation("shininess"), shadingData.shininess);
+					glUniform3fv(shader.getUniformLocation("cameraPos"), 1, glm::value_ptr(cameraPos));
+					render(shader);
+				}
+                
+            }
+
+            // Restore default depth test settings and disable blending.
+            glDepthFunc(GL_LEQUAL);
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+        } else {
+            debugShader.bind();
+            // glUniform3fv(debugShader.getUniformLocation("viewPos"), 1, glm::value_ptr(cameraPos)); // viewPos.
+            render(debugShader);
+        }
+
+
+        lightShader.bind();
+        {
+            const glm::vec4 screenPos = mvp * glm::vec4(lights[selectedLightIndex].position, 1.0f);
+            //const glm::vec3 color { 1, 1, 0 };
+            glm::vec3 color = lights[selectedLightIndex].color;  // FIXME: I changed the light cube color to light color
+
+            glPointSize(40.0f);
+            glUniform4fv(lightShader.getUniformLocation("pos"), 1, glm::value_ptr(screenPos));
+            glUniform3fv(lightShader.getUniformLocation("color"), 1, glm::value_ptr(color));
+            glBindVertexArray(vaos[currentFrame]);
+            glDrawArrays(GL_POINTS, 0, 1);
+            glBindVertexArray(0);
+        }
+        for (const Light& light : lights) {
+            const glm::vec4 screenPos = mvp * glm::vec4(light.position, 1.0f);
+            // const glm::vec3 color { 1, 0, 0 };
+
+            glPointSize(10.0f);
+            glUniform4fv(lightShader.getUniformLocation("pos"), 1, glm::value_ptr(screenPos));
+            glUniform3fv(lightShader.getUniformLocation("color"), 1, glm::value_ptr(light.color));
+            glBindVertexArray(vaos[currentFrame]);
+            glDrawArrays(GL_POINTS, 0, 1);
+            glBindVertexArray(0);
+
+        }
 
         // Present result to the screen
         window.swapBuffers();
     }
+
+    // Be a nice citizen and clean up after yourself.
+    glDeleteFramebuffers(1, &framebuffer);
+    glDeleteTextures(1, &texToon);
+    glDeleteTextures(1, &texShadow);
+    //for (GLuint & texLight : lightTextures) glDeleteTextures(1, &texLight);
 
     // Cleanup after rendering
     for (size_t i = 0; i < meshes.size(); ++i) {
