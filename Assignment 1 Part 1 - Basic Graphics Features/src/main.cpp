@@ -232,9 +232,9 @@ int main(int argc, char** argv)
 {
 
     // read toml file from argument line (otherwise use default file)
-    std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
+    //std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
     //std::string config_filename = "resources/test_scene.toml";
-    //std::string config_filename = "resources/test_scene2.toml";
+    std::string config_filename = "resources/test_scene2.toml";
     //std::string config_filename = "resources/scene2.toml";
 
     // parse initial scene config
@@ -389,24 +389,28 @@ int main(int argc, char** argv)
     //}
 
     Light& light = lights[selectedLightIndex];
-    Texture& texture = light.texture;
-    int texWidth = texture.width, texHeight = texture.height, texChannels = texture.channels;
-    stbi_uc* pixels = texture.texture_data;  // Texture data already loaded
+    
 
     GLuint texLight;
-    glGenTextures(1, &texLight);  // Generate a texture ID
-    glBindTexture(GL_TEXTURE_2D, texLight);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    if (light.has_texture) {
+        Texture& texture = light.texture;
+        int texWidth = texture.width, texHeight = texture.height, texChannels = texture.channels;
+        stbi_uc* pixels = texture.texture_data;  // Texture data already loaded
 
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glGenTextures(1, &texLight);  // Generate a texture ID
+        glBindTexture(GL_TEXTURE_2D, texLight);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    stbi_image_free(pixels);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        stbi_image_free(pixels);
+    }
 
 
     /* NOTE: Shadow Texture */
@@ -651,13 +655,12 @@ int main(int argc, char** argv)
             //std::cout << "spotlight mode: " << light.is_spotlight << std::endl;
             //std::cout << "light texture: " << light.has_texture << std::endl;
 
-            if (!(debug)) {
-                glUniform1i(shader.getUniformLocation("shadow"), showShadows);
-                glUniform1i(shader.getUniformLocation("pcf"), usePCF);
-                glUniform1i(shader.getUniformLocation("peelingMode"), 0);
-                glUniform1i(shader.getUniformLocation("lightMode"), light.is_spotlight ? 1 : 0);
-                glUniform1i(shader.getUniformLocation("lightColorMode"), light.has_texture ? 1 : 0);
-            }
+			glUniform1i(shader.getUniformLocation("shadow"), showShadows);
+			glUniform1i(shader.getUniformLocation("pcf"), usePCF);
+			glUniform1i(shader.getUniformLocation("peelingMode"), 0);
+			glUniform1i(shader.getUniformLocation("lightMode"), light.is_spotlight ? 1 : 0);
+			glUniform1i(shader.getUniformLocation("lightColorMode"), light.has_texture ? 1 : 0);
+
 
             // Bind the VAO corresponding to the current frame
             glBindVertexArray(vao);
@@ -759,7 +762,7 @@ int main(int argc, char** argv)
 					// === SET YOUR SPECULAR TOON UNIFORMS HERE ===
 					// Values that you may want to pass to the shader are stored in light, shadingData and cameraPos.
 					glUniform3fv(toonSpecularShader.getUniformLocation("lightPos"), 1, glm::value_ptr(light.position));
-					//glUniform3fv(toonSpecularShader.getUniformLocation("lightColor"), 1, glm::value_ptr(light.color));
+					glUniform3fv(toonSpecularShader.getUniformLocation("lightColor"), 1, glm::value_ptr(light.color));
 					//glUniform3fv(toonSpecularShader.getUniformLocation("ks"), 1, glm::value_ptr(shadingData.ks));
 					glUniform1f(toonSpecularShader.getUniformLocation("shininess"), shadingData.shininess);
 					glUniform3fv(toonSpecularShader.getUniformLocation("cameraPos"), 1, glm::value_ptr(cameraPos));

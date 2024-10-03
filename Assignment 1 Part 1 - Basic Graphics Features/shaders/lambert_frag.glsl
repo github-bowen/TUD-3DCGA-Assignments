@@ -29,7 +29,7 @@ uniform int lightColorMode;  // 0: White, 1: Textured
 // Bias for shadow comparison to avoid self-shadowing
 const float bias = 0.005;
 // Spotlight dimming power
-const float spotlightPower = 1;  // 1: smooth boundary, 0.1: sharp boundary
+const float spotlightPower = 0.5;  // 1: smooth boundary, 0.1: sharp boundary
 
 
 // calculate spotlight dimming based on distance from shadow map center
@@ -68,7 +68,7 @@ float shadowTest(vec2 shadowMapCoord, float currentDepth) {
                 shadowFactor += currentDepth - bias > sampleShadowMapDepth ? 0.0 : 1.0;        
             }    
         }
-        shadowFactor /= 9.0;  // number of samples: 9
+        shadowFactor /= 9;  // number of samples: 9
         return shadowFactor;
     }
 }
@@ -106,7 +106,7 @@ ShadowInfo getShadowInfo()
     float shadowFactor = shadowTest(shadowMapCoord, currentDepth);
 
     // Sample the light color from the light texture using the shadow map coordinates
-    vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : vec3(1.0);
+    vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : lightColor;
 
     if (peelingMode == 1 && shadowFactor > 0.9) {  // optional: distance(shadowMapCoord, vec2(0.5)) < 0.5
         discard;
@@ -130,13 +130,15 @@ void main()
     vec3 N = normalize(fragNormal);  // normal direction
     vec3 L = normalize(lightPos - fragPos);  // light direction
 
-    vec3 diffuse = kd * max(dot(N, L), 0.0) * lightColor;
+    
 
     
     ShadowInfo shadowInfo = getShadowInfo();
     vec3 lightColorFactor = shadowInfo.lightColorFactor;
     float dimmingFactor = shadowInfo.dimmingFactor;
     float shadowFactor = shadowInfo.shadowFactor;
+
+    vec3 diffuse = kd * max(dot(N, L), 0.0) * lightColorFactor;
 
     outColor = vec4(diffuse * shadowFactor * dimmingFactor, 1.0);
 }

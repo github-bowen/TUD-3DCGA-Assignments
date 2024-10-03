@@ -2,7 +2,7 @@
 
 // Global variables for lighting calculations
 uniform vec3 lightPos;  // Position of the light source
-// uniform vec3 lightColor; // Color of the light
+uniform vec3 lightColor; // Color of the light
 // uniform vec3 ks; // Specular reflectivity  FIXME: deleted
 uniform float shininess; // Shininess exponent
 uniform vec3 cameraPos;  // Position of the camera
@@ -110,7 +110,7 @@ ShadowInfo getShadowInfo()
     float shadowFactor = shadowTest(shadowMapCoord, currentDepth);
 
     // Sample the light color from the light texture using the shadow map coordinates
-    vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : vec3(1.0);
+    vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : lightColor;
 
     if (peelingMode == 1 && shadowFactor > 0.9) {  // optional: distance(shadowMapCoord, vec2(0.5)) < 0.5
         discard;
@@ -145,7 +145,7 @@ void main()
     float dimmingFactor = shadowInfo.dimmingFactor;
     float shadowFactor = shadowInfo.shadowFactor;
 
-    vec3 specular = (specularFactor >= toonSpecularThreshold) ? vec3(1.0) : vec3(0.0);
+    vec3 specular = (specularFactor >= toonSpecularThreshold) ? vec3(1.0) * lightColorFactor : vec3(0.0);
 
     outColor = vec4(specular * shadowFactor * dimmingFactor, 1.0);
 }

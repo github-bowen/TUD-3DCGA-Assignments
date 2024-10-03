@@ -108,7 +108,7 @@ ShadowInfo getShadowInfo()
     float shadowFactor = shadowTest(shadowMapCoord, currentDepth);
 
     // Sample the light color from the light texture using the shadow map coordinates
-    vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : vec3(1.0);
+    vec3 lightColorFactor = (lightColorMode == 1) ? texture(texLight, shadowMapCoord).rgb : lightColor;
 
     if (peelingMode == 1 && shadowFactor > 0.9) {  // optional: distance(shadowMapCoord, vec2(0.5)) < 0.5
         discard;
@@ -136,12 +136,14 @@ void main()
     float diffuseFactor = max(dot(N, L), 0.0);
     float quantizedDiffuseFactor = ceil(diffuseFactor * toonDiscretize) / toonDiscretize;
 
-    vec3 diffuse = kd * quantizedDiffuseFactor * lightColor;
+    
 
     ShadowInfo shadowInfo = getShadowInfo();
     vec3 lightColorFactor = shadowInfo.lightColorFactor;
     float dimmingFactor = shadowInfo.dimmingFactor;
     float shadowFactor = shadowInfo.shadowFactor;
+
+    vec3 diffuse = kd * quantizedDiffuseFactor * lightColorFactor;
 
     outColor = vec4(diffuse * shadowFactor * dimmingFactor, 1.0);
 }
