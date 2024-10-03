@@ -31,7 +31,7 @@ uniform int lightMode;  // 0: Normal, 1: Spotlight
 uniform int lightColorMode;  // 0: White, 1: Textured
 
 // Bias for shadow comparison to avoid self-shadowing
-const float bias = 0.0005;
+const float bias = 0.005;
 // Spotlight dimming power
 const float spotlightPower = 0.5;  // 1: smooth boundary, 0.1: sharp boundary
 

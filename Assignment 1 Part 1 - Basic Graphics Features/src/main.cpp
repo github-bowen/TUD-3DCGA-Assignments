@@ -55,6 +55,8 @@ const int HEIGHT = 800;
 #define blinnPhongSpecularLighting (specularMode == 2)
 #define toonLightingSpecular (specularMode == 3)
 
+#define DEBUG_MODE 1
+
 bool show_imgui = true;
 bool showShadows = false;
 bool usePCF = false;  // only take effects when showShadows is set to true
@@ -98,12 +100,12 @@ std::vector<Light> lights {};
 size_t selectedLightIndex = 0;
 
 void addLights() {
-    lights.push_back(Light{ glm::vec3(0, 0, 3), glm::vec3(1) });
+    lights.push_back(Light{ glm::vec3(0.4, 1.2, 0.2), glm::vec3(1), false, glm::vec3(0.707, 0.0, 0.707), false});
     //selectedLightIndex = lights.size() - 1;
 }
 
 void removeLights() {
-    if (!lights.empty() && selectedLightIndex < lights.size()) {
+    if (!lights.empty() && selectedLightIndex < lights.size() && lights.size() > 1) {
         lights.erase(lights.begin() + selectedLightIndex);
         selectedLightIndex = std::min(lights.size() - 1, selectedLightIndex);
     }
@@ -111,7 +113,7 @@ void removeLights() {
 
 void resetLights() {
     lights.clear();
-    lights.push_back(Light{ glm::vec3(0, 0, 3), glm::vec3(1) });
+    lights.push_back(Light{ glm::vec3(0.4, 1.2, 0.2), glm::vec3(1), false, glm::vec3(0.707, 0.0, 0.707), false});
     selectedLightIndex = 0;
 }
 
@@ -191,7 +193,9 @@ void imgui()
     /* NOTE: Shadows Setting*/
     
     ImGui::Text("Shawdows Setting");
+    //ImGui::BeginDisabled(debug || toonxLighting);
     ImGui::Checkbox("Shadows", &showShadows);
+    //ImGui::EndDisabled();
 
     ImGui::BeginDisabled(!showShadows);
     ImGui::Checkbox("PCF", &usePCF);
@@ -381,6 +385,26 @@ int main(int argc, char** argv)
     //    }
     //}
 
+    Light& light = lights[selectedLightIndex];
+    Texture& texture = light.texture;
+    int texWidth = texture.width, texHeight = texture.height, texChannels = texture.channels;
+    stbi_uc* pixels = texture.texture_data;  // Texture data already loaded
+
+    GLuint texLight;
+    glGenTextures(1, &texLight);  // Generate a texture ID
+    glBindTexture(GL_TEXTURE_2D, texLight);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    stbi_image_free(pixels);
+
 
     
     // Store VBO, IBO, VAO for each mesh
@@ -419,9 +443,16 @@ int main(int argc, char** argv)
     /* NOTE: Shadow Texture */
 
     // === Create Shadow Texture ===
+    
+#if DEBUG_MODE
+    const int SHADOWTEX_WIDTH = 2400;
+    const int SHADOWTEX_HEIGHT = 1600;
+#else
+    const int SHADOWTEX_WIDTH = 1024;
+    const int SHADOWTEX_HEIGHT = 1024;
+#endif
+
     GLuint texShadow;
-    const int SHADOWTEX_WIDTH = 2400;// 2400;
-    const int SHADOWTEX_HEIGHT = 1600;// 1600;
     glGenTextures(1, &texShadow);
     glBindTexture(GL_TEXTURE_2D, texShadow);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, SHADOWTEX_WIDTH, SHADOWTEX_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -449,7 +480,7 @@ int main(int argc, char** argv)
 
     // Load image from disk to CPU memory.
     int width, height, sourceNumChannels; // Number of channels in source image. pixels will always be the requested number of channels (3).
-    stbi_uc* pixels = stbi_load(RESOURCE_ROOT "resources/toon_map.png", &width, &height, &sourceNumChannels, STBI_rgb);
+    stbi_uc* pixels2 = stbi_load(RESOURCE_ROOT "resources/toon_map.png", &width, &height, &sourceNumChannels, STBI_rgb);
 
     // Create a texture on the GPU with 3 channels with 8 bits each.
     GLuint texToon;
@@ -464,10 +495,10 @@ int main(int argc, char** argv)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels2);
 
     // Free the CPU memory after we copied the image to the GPU.
-    stbi_image_free(pixels);
+    stbi_image_free(pixels2);
 
     // Enable depth testing.
     //glEnable(GL_DEPTH_TEST);
@@ -544,23 +575,35 @@ int main(int argc, char** argv)
 
             const Mesh& mesh = meshes[currentFrame];  // Select current frame
 
-            glUniformMatrix4fv(shader.getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMVP));
+            if (!(debug)) {
+                glUniformMatrix4fv(shader.getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMVP));
+            }
 
             // Set the MVP matrix for the current frame
             glUniformMatrix4fv(shader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 
-            glUniform1i(shader.getUniformLocation("shadow"), showShadows);
-            glUniform1i(shader.getUniformLocation("pcf"), usePCF);
-            glUniform1i(shader.getUniformLocation("peelingMode"), 0);
-            glUniform1i(shader.getUniformLocation("lightMode"), light.is_spotlight);
-            glUniform1i(shader.getUniformLocation("lightColorMode"), light.has_texture);
+            if (!(debug)) {
+                glUniform1i(shader.getUniformLocation("shadow"), showShadows);
+                glUniform1i(shader.getUniformLocation("pcf"), usePCF);
+                glUniform1i(shader.getUniformLocation("peelingMode"), 0);
+                glUniform1i(shader.getUniformLocation("lightMode"), light.is_spotlight);
+                glUniform1i(shader.getUniformLocation("lightColorMode"), light.has_texture);
+            }
 
             // Bind the VAO corresponding to the current frame
             glBindVertexArray(vaos[currentFrame]);
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texShadow);
-            glUniform1i(shader.getUniformLocation("texShadow"), 0);
+            if (!(debug)) {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texShadow);
+                glUniform1i(shader.getUniformLocation("texShadow"), 0);
+
+                if (!toonxLighting) {
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, texLight);
+                    glUniform1i(shader.getUniformLocation("texLight"), 1);
+                }
+            }
 
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
             glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
@@ -612,13 +655,14 @@ int main(int argc, char** argv)
 
 					// === SET YOUR X-TOON UNIFORMS HERE ===
 					// Values that you may want to pass to the shader are stored in light, shadingData and cameraPos and texToon.
-					glActiveTexture(GL_TEXTURE0);
+					glActiveTexture(GL_TEXTURE2);
 					glBindTexture(GL_TEXTURE_2D, texToon);
+                    glUniform1i(xToonShader.getUniformLocation("texToon"), 2); // Change xxx to the uniform name that you want to use.
+
 					glUniform3fv(xToonShader.getUniformLocation("lightPos"), 1, glm::value_ptr(light.position));
 					glUniform3fv(xToonShader.getUniformLocation("cameraPos"), 1, glm::value_ptr(cameraPos));
 					glUniform1f(xToonShader.getUniformLocation("shininess"), shadingData.shininess);
 					
-                    glUniform1i(xToonShader.getUniformLocation("texToon"), 0); // Change xxx to the uniform name that you want to use.
 					render(xToonShader);
 				} else if (toonLightingDiffuse) {
 					toonDiffuseShader.bind();
