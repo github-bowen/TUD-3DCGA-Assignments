@@ -38,14 +38,6 @@ DISABLE_WARNINGS_POP()
 const int WIDTH = 1200;
 const int HEIGHT = 800;
 
-
-//bool debug = true;
-//bool diffuseLighting = false;
-//bool phongSpecularLighting = false;
-//bool blinnPhongSpecularLighting = false;
-//bool toonLightingDiffuse = false;
-//bool toonLightingSpecular = false;
-//bool toonxLighting = false;
 #define debug (diffuseMode == 0)
 #define diffuseLighting (diffuseMode == 1)
 #define toonLightingDiffuse (diffuseMode == 2)
@@ -56,6 +48,9 @@ const int HEIGHT = 800;
 #define toonLightingSpecular (specularMode == 3)
 
 #define DEBUG_MODE 1
+
+#define ENABLE_AUTOPLAY 1
+#define FRAME_DURATION 0.1
 
 bool show_imgui = true;
 bool showShadows = false;
@@ -507,6 +502,10 @@ int main(int argc, char** argv)
     //}
 
 
+    double lastTime = glfwGetTime(); // Track the time when the last frame was displayed
+    double frameDuration = FRAME_DURATION;      // Duration (in seconds) to display each frame
+
+
     GLuint vao = 0, vbo = 0, ibo = 0;
 
     // Main render loop
@@ -514,6 +513,16 @@ int main(int argc, char** argv)
         window.updateInput();
 
         imgui();
+
+#if ENABLE_AUTOPLAY
+        // Time-based automatic frame animation
+        double currentTime = glfwGetTime();
+        if (animated && (currentTime - lastTime >= frameDuration)) {
+            currentFrame = (currentFrame + 1) % meshes.size(); // Advance to the next frame
+            lastTime = currentTime;  // Reset the timer
+            frameChanged = true;     // Indicate that the frame has changed
+        }
+#endif
 
         Mesh& mesh = meshes[currentFrame];
         // Assume frameHasChanged() checks if the frame has changed
