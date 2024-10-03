@@ -232,9 +232,9 @@ int main(int argc, char** argv)
 {
 
     // read toml file from argument line (otherwise use default file)
-    //std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
+    std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
     //std::string config_filename = "resources/test_scene.toml";
-    std::string config_filename = "resources/test_scene2.toml";
+    //std::string config_filename = "resources/test_scene2.toml";
     //std::string config_filename = "resources/scene2.toml";
 
     // parse initial scene config
