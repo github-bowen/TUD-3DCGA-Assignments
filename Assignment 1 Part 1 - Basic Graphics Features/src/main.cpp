@@ -233,8 +233,8 @@ int main(int argc, char** argv)
 
     // read toml file from argument line (otherwise use default file)
     //std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
-    //std::string config_filename = "resources/test_scene.toml";
-    std::string config_filename = "resources/test_scene2.toml";
+    std::string config_filename = "resources/test_scene.toml";
+    //std::string config_filename = "resources/test_scene2.toml";
     //std::string config_filename = "resources/scene2.toml";
 
     // parse initial scene config
@@ -322,6 +322,7 @@ int main(int argc, char** argv)
     //auto mesh_path = std::string(RESOURCE_ROOT) + config["mesh"]["path"].value_or("resources/dragon.obj");
     //std::cout << mesh_path << std::endl;
     //const Mesh mesh = loadMesh(mesh_path)[0];
+    bool frameChanged = true;
 
     window.registerKeyCallback([&](int key, int /* scancode */, int action, int /* mods */) {
         if (key == '\\' && action == GLFW_PRESS) {
@@ -333,6 +334,7 @@ int main(int argc, char** argv)
             if (animated) {
                 currentFrame = (currentFrame + 1) % meshes.size();
                 std::cout << "Current Frame: " << currentFrame << std::endl;
+                frameChanged = true;
             }
         }
 
@@ -406,40 +408,6 @@ int main(int argc, char** argv)
     stbi_image_free(pixels);
 
 
-    
-    // Store VBO, IBO, VAO for each mesh
-    std::vector<GLuint> vbos(meshes.size());
-    std::vector<GLuint> ibos(meshes.size());
-    std::vector<GLuint> vaos(meshes.size());
-
-    // Initialize the buffers for all meshes
-    for (size_t i = 0; i < meshes.size(); ++i) {
-        const Mesh& mesh = meshes[i];
-
-        // Create and bind buffers
-        glGenBuffers(1, &vbos[i]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbos[i]);
-        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Vertex)), mesh.vertices.data(), GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-        glGenBuffers(1, &ibos[i]);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibos[i]);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.triangles.size() * sizeof(decltype(Mesh::triangles)::value_type)), mesh.triangles.data(), GL_STATIC_DRAW);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-        glGenVertexArrays(1, &vaos[i]);
-        glBindVertexArray(vaos[i]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbos[i]);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibos[i]);
-
-        // Set vertex attribute pointers for position and normal
-        
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-
-        glBindVertexArray(0); // Unbind the VAO for now
-    }
-
     /* NOTE: Shadow Texture */
 
     // === Create Shadow Texture ===
@@ -503,12 +471,86 @@ int main(int argc, char** argv)
     // Enable depth testing.
     //glEnable(GL_DEPTH_TEST);
 
+
+
+    // Store VBO, IBO, VAO for each mesh
+    //std::vector<GLuint> vbos(meshes.size());
+    //std::vector<GLuint> ibos(meshes.size());
+    //std::vector<GLuint> vaos(meshes.size());
+
+    //// Initialize the buffers for all meshes
+    //for (size_t i = 0; i < meshes.size(); ++i) {
+    //    const Mesh& mesh = meshes[i];
+
+    //    // Create and bind buffers
+    //    glGenBuffers(1, &vbos[i]);
+    //    glBindBuffer(GL_ARRAY_BUFFER, vbos[i]);
+    //    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Vertex)), mesh.vertices.data(), GL_STATIC_DRAW);
+    //    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    //    glGenBuffers(1, &ibos[i]);
+    //    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibos[i]);
+    //    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.triangles.size() * sizeof(decltype(Mesh::triangles)::value_type)), mesh.triangles.data(), GL_STATIC_DRAW);
+    //    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    //    glGenVertexArrays(1, &vaos[i]);
+    //    glBindVertexArray(vaos[i]);
+    //    glBindBuffer(GL_ARRAY_BUFFER, vbos[i]);
+    //    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibos[i]);
+
+    //    // Set vertex attribute pointers for position and normal
+
+    //    glEnableVertexAttribArray(0);
+    //    glEnableVertexAttribArray(1);
+
+    //    glBindVertexArray(0); // Unbind the VAO for now
+    //}
+
+
+    GLuint vao = 0, vbo = 0, ibo = 0;
+
     // Main render loop
     while (!window.shouldClose()) {
         window.updateInput();
 
         imgui();
 
+        Mesh& mesh = meshes[currentFrame];
+        // Assume frameHasChanged() checks if the frame has changed
+        if (frameChanged) {
+            frameChanged = false;
+
+            // Clear the previous buffers
+            if (vao != 0) {
+                glDeleteVertexArrays(1, &vao);
+                glDeleteBuffers(1, &vbo);
+                glDeleteBuffers(1, &ibo);
+            }
+            
+
+            //    // Create and bind buffers
+			glGenBuffers(1, &vbo);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Vertex)), mesh.vertices.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+			glGenBuffers(1, &ibo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh.triangles.size() * sizeof(decltype(Mesh::triangles)::value_type)), mesh.triangles.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+			glGenVertexArrays(1, &vao);
+			glBindVertexArray(vao);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+
+			//    // Set vertex attribute pointers for position and normal
+
+			glEnableVertexAttribArray(0);
+			glEnableVertexAttribArray(1);
+
+			glBindVertexArray(0); // Unbind the VAO for now
+        }
 
         // Camera/view/projection settings
         const glm::vec3 cameraPos = trackball.position();
@@ -548,7 +590,7 @@ int main(int argc, char** argv)
             glUniformMatrix4fv(shadowShader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(lightMVP));
 
             // Bind vertex data
-            glBindVertexArray(vaos[currentFrame]);
+            glBindVertexArray(vao);
 
             glVertexAttribPointer(shadowShader.getAttributeLocation("pos"), 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
 
@@ -582,27 +624,28 @@ int main(int argc, char** argv)
             // Set the MVP matrix for the current frame
             glUniformMatrix4fv(shader.getUniformLocation("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 
+            //std::cout << "spotlight mode: " << light.is_spotlight << std::endl;
+            //std::cout << "light texture: " << light.has_texture << std::endl;
+
             if (!(debug)) {
                 glUniform1i(shader.getUniformLocation("shadow"), showShadows);
                 glUniform1i(shader.getUniformLocation("pcf"), usePCF);
                 glUniform1i(shader.getUniformLocation("peelingMode"), 0);
-                glUniform1i(shader.getUniformLocation("lightMode"), light.is_spotlight);
-                glUniform1i(shader.getUniformLocation("lightColorMode"), light.has_texture);
+                glUniform1i(shader.getUniformLocation("lightMode"), light.is_spotlight ? 1 : 0);
+                glUniform1i(shader.getUniformLocation("lightColorMode"), light.has_texture ? 1 : 0);
             }
 
             // Bind the VAO corresponding to the current frame
-            glBindVertexArray(vaos[currentFrame]);
+            glBindVertexArray(vao);
 
             if (!(debug)) {
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texShadow);
                 glUniform1i(shader.getUniformLocation("texShadow"), 0);
 
-                if (!toonxLighting) {
-                    glActiveTexture(GL_TEXTURE1);
-                    glBindTexture(GL_TEXTURE_2D, texLight);
-                    glUniform1i(shader.getUniformLocation("texLight"), 1);
-                }
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, texLight);
+				glUniform1i(shader.getUniformLocation("texLight"), 1);
             }
 
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
@@ -734,7 +777,7 @@ int main(int argc, char** argv)
             glPointSize(40.0f);
             glUniform4fv(lightShader.getUniformLocation("pos"), 1, glm::value_ptr(screenPos));
             glUniform3fv(lightShader.getUniformLocation("color"), 1, glm::value_ptr(color));
-            glBindVertexArray(vaos[currentFrame]);
+            glBindVertexArray(vao);
             glDrawArrays(GL_POINTS, 0, 1);
             glBindVertexArray(0);
         }
@@ -745,7 +788,7 @@ int main(int argc, char** argv)
             glPointSize(10.0f);
             glUniform4fv(lightShader.getUniformLocation("pos"), 1, glm::value_ptr(screenPos));
             glUniform3fv(lightShader.getUniformLocation("color"), 1, glm::value_ptr(light.color));
-            glBindVertexArray(vaos[currentFrame]);
+            glBindVertexArray(vao);
             glDrawArrays(GL_POINTS, 0, 1);
             glBindVertexArray(0);
 
@@ -759,13 +802,14 @@ int main(int argc, char** argv)
     glDeleteFramebuffers(1, &framebuffer);
     glDeleteTextures(1, &texToon);
     glDeleteTextures(1, &texShadow);
+    glDeleteTextures(1, &texLight);
     //for (GLuint & texLight : lightTextures) glDeleteTextures(1, &texLight);
 
     // Cleanup after rendering
     for (size_t i = 0; i < meshes.size(); ++i) {
-        glDeleteBuffers(1, &vbos[i]);
-        glDeleteBuffers(1, &ibos[i]);
-        glDeleteVertexArrays(1, &vaos[i]);
+        glDeleteBuffers(1, &vbo);
+        glDeleteBuffers(1, &ibo);
+        glDeleteVertexArrays(1, &vao);
     }
 
     return 0;

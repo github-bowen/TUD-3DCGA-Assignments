@@ -1,5 +1,5 @@
 [mesh]
-path = "resources/test_animation/scene.obj"
+path = "resources/scene.obj"
 animated = false
 
 [material]
