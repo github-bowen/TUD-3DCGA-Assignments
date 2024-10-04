@@ -49,7 +49,7 @@ const int HEIGHT = 800;
 
 #define DEBUG_MODE 1
 
-#define ENABLE_AUTOPLAY 0
+#define ENABLE_AUTOPLAY 1
 #define FRAME_DURATION 0.1
 
 bool show_imgui = true;
@@ -196,7 +196,10 @@ void imgui()
     ImGui::EndDisabled();
 
     ImGui::Checkbox("Spotlight", &lights[selectedLightIndex].is_spotlight);
-    ImGui::Checkbox("Light Texture", &lights[selectedLightIndex].has_texture);
+
+    //ImGui::BeginDisabled(!lights[selectedLightIndex].has_texture);
+    //ImGui::Checkbox("Light Texture", &lights[selectedLightIndex].has_texture);
+    //ImGui::EndDisabled();
     //ImGui::EndDisabled();
 
     
@@ -233,9 +236,12 @@ int main(int argc, char** argv)
 
     // read toml file from argument line (otherwise use default file)
     //std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/default_scene.toml";
-    std::string config_filename = "resources/test_scene.toml";
+    //std::string config_filename = "resources/test_scene.toml";
     //std::string config_filename = "resources/test_scene2.toml";
     //std::string config_filename = "resources/scene2.toml";
+
+    std::string config_filename = argc == 2 ? std::string(argv[1]) : "resources/checkout.toml";
+    //std::string config_filename = "resources/test_my_animation.toml";
 
     // parse initial scene config
     toml::table config;
@@ -270,6 +276,9 @@ int main(int argc, char** argv)
         if (has_texture) {
             std::cout << "Light Texture: " << has_texture << std::endl;
             pixels = stbi_load(tex_path.c_str(), &width, &height, &sourceNumChannels, STBI_rgb);
+        } else {
+            auto default_path = std::string(RESOURCE_ROOT) + "resources/smiley.obj";
+            pixels = stbi_load(default_path.c_str(), &width, &height, &sourceNumChannels, STBI_rgb);
         }
 
         lights.emplace_back(Light { pos, color, is_spotlight, direction, has_texture, { width, height, sourceNumChannels, pixels, tex_path } });
@@ -289,6 +298,17 @@ int main(int argc, char** argv)
     auto specular_model = config["render_settings"]["specular_model"].value<std::string>();
     bool do_pcf = config["render_settings"]["pcf"].value<bool>().value();
     bool do_shadows = config["render_settings"]["shadows"].value<bool>().value();
+
+    //const std::array diffuseModes{ "debug", "lambert", "toon", "x-toon" };  // common one: "toon"
+    //const std::array specularModes{ "none", "phong", "blinn-phong", "toon" };
+
+    diffuseMode = std::distance(diffuseModes.begin(),
+        std::find(diffuseModes.begin(), diffuseModes.end(), diffuse_model));
+    std::cout << "Initial diffuseMode: " << diffuseMode << std::endl;
+
+    specularMode = std::distance(specularModes.begin(), 
+        std::find(specularModes.begin(), specularModes.end(), specular_model));
+    std::cout << "Initial specularMode: " << specularMode << std::endl;
 
     Trackball trackball { &window, glm::radians(fovY) };
     trackball.setCamera(look_at, rotations, dist);
@@ -388,33 +408,35 @@ int main(int argc, char** argv)
     //    }
     //}
 
-    Light& light = lights[selectedLightIndex];
+    std::vector<GLuint> lightTextures;
+    //Light& light = lights[selectedLightIndex];
     
+    for (Light& light : lights) {
+        GLuint texLight;
+        if (light.has_texture) {
+            Texture& texture = light.texture;
+            int texWidth = texture.width, texHeight = texture.height, texChannels = texture.channels;
+            //stbi_uc* pixels = texture.texture_data;  // Texture data already loaded
+            std::cout << "Texture light file path: " << texture.texture_path << std::endl;
+            //stbi_uc* pixels = stbi_load(texture.texture_path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb);
+            stbi_uc* pixels = texture.texture_data;
 
-    GLuint texLight;
-    if (light.has_texture) {
-        Texture& texture = light.texture;
-        int texWidth = texture.width, texHeight = texture.height, texChannels = texture.channels;
-        //stbi_uc* pixels = texture.texture_data;  // Texture data already loaded
-        std::cout << "Texture light file path: " << texture.texture_path << std::endl;
-        //stbi_uc* pixels = stbi_load(texture.texture_path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb);
-        stbi_uc* pixels = texture.texture_data;
+            glGenTextures(1, &texLight);  // Generate a texture ID
+            glBindTexture(GL_TEXTURE_2D, texLight);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 
-        glGenTextures(1, &texLight);  // Generate a texture ID
-        glBindTexture(GL_TEXTURE_2D, texLight);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+            // Set texture parameters
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        // Set texture parameters
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        stbi_image_free(pixels);
+            stbi_image_free(pixels);
+        }
+        lightTextures.push_back(texLight);
     }
-
 
     /* NOTE: Shadow Texture */
 
@@ -673,10 +695,13 @@ int main(int argc, char** argv)
                 glBindTexture(GL_TEXTURE_2D, texShadow);
                 glUniform1i(shader.getUniformLocation("texShadow"), 0);
 
-				glActiveTexture(GL_TEXTURE1);
-				glBindTexture(GL_TEXTURE_2D, texLight);
-				glUniform1i(shader.getUniformLocation("texLight"), 1);
-            }
+				if (lights[selectedLightIndex].has_texture) {
+					GLuint texLight = lightTextures.at(selectedLightIndex);
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_2D, texLight);
+					glUniform1i(shader.getUniformLocation("texLight"), 1);
+				}
+			}
 
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
             glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
@@ -832,8 +857,8 @@ int main(int argc, char** argv)
     glDeleteFramebuffers(1, &framebuffer);
     glDeleteTextures(1, &texToon);
     glDeleteTextures(1, &texShadow);
-    glDeleteTextures(1, &texLight);
-    //for (GLuint & texLight : lightTextures) glDeleteTextures(1, &texLight);
+    //glDeleteTextures(1, &texLight);
+    for (GLuint & texLight : lightTextures) glDeleteTextures(1, &texLight);
 
     // Cleanup after rendering
     for (size_t i = 0; i < meshes.size(); ++i) {
