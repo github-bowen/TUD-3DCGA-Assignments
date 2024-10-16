@@ -1,0 +1,17 @@
+.vs
+*/.vs
+*/*/.vs
+*/*/*/.vs
+
+out/
+*/out/
+*/*/out/
+*/*/*/out/
+
+build/
+*/build/
+*/*/build/
+*/*/*/build/
+
+others
+.vscode
