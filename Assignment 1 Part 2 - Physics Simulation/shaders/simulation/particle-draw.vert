@@ -19,7 +19,7 @@ layout(location = 3) out vec3 fragBounceData;
 void main() {
     // Fetch position and velocity of particle from position texture
     // Half texel step ensures that we sample at the center of the relevant texel
-    float halfTexelStep     = 1.0f / (numParticles * 2.0f);
+    float halfTexelStep     = 1.0f / (numParticles * 2.0f);  // NOTE: 0.5 / Texture width
     vec2 dataTexIdx         = vec2((float(gl_InstanceID) + halfTexelStep) / float(numParticles), 0);
     vec3 particlePosition   = texture(positions, dataTexIdx).xyz;
     vec3 particleVelocity   = texture(velocities, dataTexIdx).xyz;
