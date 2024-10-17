@@ -62,5 +62,14 @@ void Menu::drawSphereContainerControls() {
 }
 
 void Menu::drawParticleColorControls() {
+    constexpr float SPEED_MAX = 10.0f;
+
+    ImGui::Checkbox("Use speed-based color", &m_config.useSpeedBasedColoring);
+
+    if (m_config.useSpeedBasedColoring) {
+        ImGui::DragFloat("Max speed", &m_config.maxSpeedThreshold, 0.1f, 0.0f, SPEED_MAX, "%.2f");
+        ImGui::ColorEdit3("Stationary color", glm::value_ptr(m_config.minSpeedColor));
+        ImGui::ColorEdit3("Max speed color", glm::value_ptr(m_config.maxSpeedColor));
+    }
 }
 
