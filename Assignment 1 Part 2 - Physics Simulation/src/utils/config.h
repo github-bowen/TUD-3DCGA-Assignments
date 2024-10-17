@@ -24,9 +24,14 @@ struct Config {
     glm::vec3 sphereColor           = glm::vec3(1.0f);
 
     // ===== Part 2: Drawing =====
+
+    // Task 2.1: Speed-based Colors
     glm::vec3 minSpeedColor = glm::vec3(0.0f, 0.0f, 1.0f); // Blue for min speed £¨stationary)
     glm::vec3 maxSpeedColor = glm::vec3(1.0f, 0.0f, 0.0f); // Red for max speed
     float maxSpeedThreshold = 7.5f;
     bool useSpeedBasedColoring = true;
 
+    // Task 2.2: Shading
+    bool enableShading = true; // For shading toggle
+    float ambientCoefficient = 0.1f;
 };

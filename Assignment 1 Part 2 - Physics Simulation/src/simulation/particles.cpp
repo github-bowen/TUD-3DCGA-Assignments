@@ -197,6 +197,10 @@ void ParticlesSimulator::draw(const glm::mat4& viewProjection) {
     glUniform1f(drawPass.getUniformLocation("maxSpeedThreshold"), config.maxSpeedThreshold);
     glUniform1i(drawPass.getUniformLocation("useSpeedBasedColoring"), config.useSpeedBasedColoring);
 
+    glUniform1i(drawPass.getUniformLocation("enableShading"), config.enableShading);
+    glUniform1f(drawPass.getUniformLocation("ambientCoefficient"), config.ambientCoefficient);
+
+
 
     // Render number of instances equal to number of particles
     particleModel.drawInstanced(config.numParticles);

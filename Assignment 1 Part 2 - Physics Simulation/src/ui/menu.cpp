@@ -63,6 +63,10 @@ void Menu::drawSphereContainerControls() {
 
 void Menu::drawParticleColorControls() {
     constexpr float SPEED_MAX = 10.0f;
+    constexpr float AMBIENT_COEFF_MAX = 0.5f;
+
+    ImGui::Checkbox("Enable Shading", &m_config.enableShading);
+    ImGui::SliderFloat("Ambient Coefficient", &m_config.ambientCoefficient, 0.0f, AMBIENT_COEFF_MAX, "%.2f");
 
     ImGui::Checkbox("Use speed-based color", &m_config.useSpeedBasedColoring);
 

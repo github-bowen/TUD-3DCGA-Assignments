@@ -7,6 +7,9 @@ uniform vec3 maxSpeedColor;
 uniform float maxSpeedThreshold;
 uniform bool useSpeedBasedColoring;
 
+uniform bool enableShading;
+uniform float ambientCoefficient;
+
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragVelocity;
@@ -29,6 +32,18 @@ void main() {
     vec3 finalColor = baseColor;
 
     // ===== Task 2.2 Shading =====
+
+    if (enableShading) {
+        // ambient term
+        vec3 ambient = ambientCoefficient * finalColor;
+
+        // diffuse term: based on a single light at the center of the container
+        vec3 lightDir = normalize(containerCenter - fragPosition);
+        float diffuseIntensity = max(0, dot(lightDir, normalize(fragNormal)));
+        vec3 diffuse = diffuseIntensity * finalColor;
+
+        finalColor = ambient + diffuse;
+    }
 
     fragColor = vec4(finalColor, 1.0);
 }
