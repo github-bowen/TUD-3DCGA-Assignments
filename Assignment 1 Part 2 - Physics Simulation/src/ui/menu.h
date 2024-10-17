@@ -14,6 +14,8 @@ private:
     void drawSphereContainerControls();
     void drawParticleColorControls();
 
+    void drawBounceControls();
+
     Config& m_config;
     int32_t m_newParticleCount;
 };

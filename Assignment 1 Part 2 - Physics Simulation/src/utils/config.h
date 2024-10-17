@@ -8,7 +8,7 @@ DISABLE_WARNINGS_POP()
 
 struct Config {
     // Particle simulation parameters
-    uint32_t numParticles       = 25;
+    uint32_t numParticles       = 2;
     float particleSimTimestep   = 0.014f;
     float particleRadius        = 0.45f;
     bool particleInterCollision = true;
@@ -33,5 +33,11 @@ struct Config {
 
     // Task 2.2: Shading
     bool enableShading = true; // For shading toggle
-    float ambientCoefficient = 0.1f;
+    float ambientCoefficient = 0.25f;
+
+    // ===== Part 3: Blinking =====
+    int bounceThreshold = 5;  // Number of collisions required before a particle blinks.
+    int bounceFrames = 60;  // Number of frames a blink should last.
+    glm::vec3 bounceColor = glm::vec3(1.0f, 1.0f, 0.0f); // Yellow for blinking
+    bool enableBounceBasedColoring = true;
 };

@@ -20,13 +20,20 @@ void Menu::draw() {
     ImGui::Separator();
     drawParticleSimControls();
     ImGui::Spacing();
+
     ImGui::Text("Sphere Container");
     ImGui::Separator();
     drawSphereContainerControls();
     ImGui::Spacing();
+
     ImGui::Text("Particle Coloring");
     ImGui::Separator();
     drawParticleColorControls();
+    ImGui::Spacing();
+
+    ImGui::Text("Bounce Coloring");
+    ImGui::Separator();
+    drawBounceControls();
 
     ImGui::End();
 }
@@ -77,3 +84,15 @@ void Menu::drawParticleColorControls() {
     }
 }
 
+void Menu::drawBounceControls() {
+    constexpr int BOUNCE_THRESHOLD_MAX = 100;
+    constexpr int BOUNCE_FRAMES_MAX = 300;
+
+    ImGui::Checkbox("Use bounce-based color", &m_config.enableBounceBasedColoring);
+
+    if (m_config.enableBounceBasedColoring) {
+        ImGui::SliderInt("Bounce threshold", &m_config.bounceThreshold, 0, BOUNCE_THRESHOLD_MAX, "%d");
+        ImGui::SliderInt("Bounce frames", &m_config.bounceFrames, 0, BOUNCE_FRAMES_MAX, "%d");
+        ImGui::ColorEdit3("Bounce Color", glm::value_ptr(m_config.bounceColor));
+    }
+}

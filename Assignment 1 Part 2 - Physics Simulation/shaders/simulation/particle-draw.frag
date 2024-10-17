@@ -10,6 +10,11 @@ uniform bool useSpeedBasedColoring;
 uniform bool enableShading;
 uniform float ambientCoefficient;
 
+uniform bool enableBounce;
+// uniform int bounceThreshold;
+// uniform int bounceFrames;
+uniform vec3 bounceColor;
+
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragVelocity;
@@ -27,6 +32,17 @@ void main() {
     if (useSpeedBasedColoring) {
         float t = clamp(speed / maxSpeedThreshold, 0.0, 1.0);
         baseColor = mix(minSpeedColor, maxSpeedColor, t);  // linear interpolation
+    }
+
+    // ===== Task 3.1 Blinking =====
+    int collisionCount = int(fragBounceData.x);
+    int frameCounter = int(fragBounceData.y);
+
+    if (enableBounce) {
+        if (frameCounter > 0) {
+            baseColor = bounceColor;
+            // frameCounter--;
+        }
     }
 
     vec3 finalColor = baseColor;

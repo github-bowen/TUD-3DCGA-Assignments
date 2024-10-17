@@ -13,6 +13,11 @@ uniform vec3 containerCenter;
 uniform float containerRadius;
 uniform bool interParticleCollision;
 
+// uniform bool enableBounce;
+uniform int bounceThreshold;
+uniform int bounceFrames;
+// uniform vec3 bounceColor;
+
 layout(location = 0) out vec3 finalPosition;
 layout(location = 1) out vec3 finalVelocity;
 layout(location = 2) out vec3 finalBounceData;
@@ -24,6 +29,11 @@ void main() {
     vec2 uv = gl_FragCoord.xy / textureSize(previousPositions, 0);  // 0: main mipmap
     vec3 prevPos = texture(previousPositions, uv).rgb;
     vec3 prevVel = texture(previousVelocities, uv).rgb;
+    vec2 prevBounceData = texture(previousBounceData, uv).xy;
+
+    // Unpack previous collision and frame counters
+    int collisionCount = int(prevBounceData.x);
+    int frameCounter = int(prevBounceData.y);
 
     // Define acceleration due to gravity (constant)
     vec3 gravity = vec3(0.0, -9.81, 0.0);
@@ -55,6 +65,8 @@ void main() {
                 newPos += normal * (2.0 * particleRadius - dist + COLLISION_OFFSET) * 0.5;  // 0.5: half for both particles
                 // Reflect velocity
                 newVel = reflect(newVel, normal);
+
+                collisionCount++;
             }
         }
     }
@@ -71,9 +83,25 @@ void main() {
         newPos = containerCenter + normal * (containerRadius - particleRadius - COLLISION_OFFSET);
         // Reflect the velocity about the collision normal
         newVel = reflect(newVel, normal);
+
+        collisionCount++;
     }
+
+    // ===== Task 3: Blink Logic =====
+
+    // If the collision count exceeds the threshold, set the frame counter and reset the collision count
+    if (collisionCount >= bounceThreshold) {
+        frameCounter = bounceFrames;
+        collisionCount = 0; // Reset collision count
+    }
+
+    // Decrement the frame counter if it's above zero
+    frameCounter = max(frameCounter - 1, 0);
 
 
     finalPosition = newPos;
     finalVelocity = newVel;
+
+    // Pack the updated collision count and frame counter into the final bounce data
+    finalBounceData = vec3(float(collisionCount), float(frameCounter), 0.0);
 }
