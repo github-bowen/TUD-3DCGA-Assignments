@@ -1,7 +1,7 @@
 #version 410
 #extension GL_ARB_explicit_uniform_location : enable
 
-#define COLLISION_OFFSET 0.01
+#define COLLISION_OFFSET 0.001
 
 uniform sampler2D previousPositions;
 uniform sampler2D previousVelocities;
@@ -52,7 +52,7 @@ void main() {
             if (dist < 2.0 * particleRadius) {
                 vec3 normal = normalize(toOther);
                 // Push the particle away
-                newPos += normal * (2.0 * particleRadius - dist + COLLISION_OFFSET);
+                newPos += normal * (2.0 * particleRadius - dist + COLLISION_OFFSET) * 0.5;  // 0.5: half for both particles
                 // Reflect velocity
                 newVel = reflect(newVel, normal);
             }
