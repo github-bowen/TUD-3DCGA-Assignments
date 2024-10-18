@@ -45,8 +45,22 @@ uniform float rasterize_width;
 
 void main()
 {
+    shape_id = -1;
+
     // ---- CIRCLE
     if (shape_type == 0) {
+        vec2 pixel_center = gl_FragCoord.xy;
+
+        for (int i = 0; i < circle_count; ++i) {
+            Circle circle = circles[i];
+            float distance = length(pixel_center - circle.position);
+
+            // rasterization range: [circle.radius - rasterize_width, circle.radius + rasterize_width]
+            if (distance >= (circle.radius - rasterize_width) && distance <= (circle.radius + rasterize_width)) {
+                shape_id = i;
+                break;
+            }
+        }
     }
     // ---- LINE
     else if (shape_type == 1) {

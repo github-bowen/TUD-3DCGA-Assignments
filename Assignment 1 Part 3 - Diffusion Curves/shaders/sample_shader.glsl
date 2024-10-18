@@ -69,7 +69,27 @@ float get_random_numbers(inout uint seed) {
 }
 vec2 march_ray(vec2 origin, vec2 direction, float step_size) {
     vec2 current_position = origin;
-    return current_position;
+
+    for (int i = 0; i < max_raymarch_iter; ++i) {
+        // screen space position to texture coordinates
+        vec2 tex_corrds = current_position / vec2(screen_dimensions);
+
+        if (tex_corrds.x < 0.0 || tex_corrds.x > 1.0 || 
+            tex_corrds.y < 0.0 || tex_corrds.y > 1.0) {
+            break;
+        }
+        
+        // texelFetch: retrieves a texel directly by integer pixel coordinates (no interpolation)
+        int shape_index = texelFetch(rasterized_texture, ivec2(current_position), 0).r;
+        // texture: samples a texture using normalized coordinates (interpolation)
+        // int circle_index = texture(rasterized_texture, texCoord).x;
+
+        if (shape_index >= 0) return current_position;  // return if hit
+
+        current_position += direction * step_size;
+    }
+
+    return origin;
 }
 
 void main()
