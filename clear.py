@@ -12,7 +12,7 @@ def clear_folders(base_dir):
     for root, dirs, files in os.walk(base_dir):
         for dir_name in dirs:
             # Check for 'out' and '.vs' folders
-            if dir_name == 'out' or dir_name == '.vs':
+            if dir_name == 'out' or dir_name == '.vs' or dir_name == '.vscode':
                 folder_path = os.path.join(root, dir_name)
                 
                 try:
@@ -26,11 +26,11 @@ def clear_folders(base_dir):
     return not has_error
 
 if __name__ == "__main__":
-    # base_directory = input("Enter the base directory to clear 'out/' and '.vs/' folders: ")
+    # base_directory = input("Enter the base directory to clear 'out/' '.vscode' and '.vs/' folders: ")
     base_directory = "./"
     success = clear_folders(base_directory)
     print()
     if success:
-        print(f"{Fore.GREEN}Clearing complete. All out/ and .vs/ folders have been removed.")
+        print(f"{Fore.GREEN}Clearing complete. All out/ .vscode/ and .vs/ folders have been removed.")
     else:
         print(f"{Fore.YELLOW}Clearing not complete. Some folders could not be removed.")
