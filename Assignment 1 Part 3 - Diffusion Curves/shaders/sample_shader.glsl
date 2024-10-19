@@ -82,7 +82,7 @@ vec2 march_ray(vec2 origin, vec2 direction, float step_size) {
         // texelFetch: retrieves a texel directly by integer pixel coordinates (no interpolation)
         int shape_index = texelFetch(rasterized_texture, ivec2(current_position), 0).r;
         // texture: samples a texture using normalized coordinates (interpolation)
-        // int circle_index = texture(rasterized_texture, texCoord).x;
+        //int shape_index = texture(rasterized_texture, tex_corrds).x;
 
         if (shape_index >= 0) return current_position;  // return if hit
 
@@ -96,13 +96,44 @@ void main()
 {
     //If a shape is hit we can sample it
     bool hit = false;
+
+    uint seed = uint(gl_FragCoord.x) * 2973u + uint(gl_FragCoord.y) * 3277u + uint(frame_nr) * 2699u;
+    float random_angle = get_random_numbers(seed) * 2.0 * M_PI;  // [0, 2PI]
+    vec2 direction = vec2(cos(random_angle), sin(random_angle));
+
+    vec2 pixel_center = gl_FragCoord.xy;
+    vec2 intersection = march_ray(pixel_center, direction, step_size);
+    vec4 accumulated_color = vec4(0.0);
+
+    int shape_index = texelFetch(rasterized_texture, ivec2(intersection), 0).r;
+    //vec2 tex_corrds = intersection / vec2(screen_dimensions);
+    //int shape_index = texture(rasterized_texture, tex_corrds).x;
+
+    if (shape_index >= 0) {
+        Circle circle = circles[shape_index];
+        float distance2center = distance(pixel_center, circle.position);
+
+        if (distance2center <= circle.radius) {
+            accumulated_color += circle.color;
+            hit = true;
+        }
+    }
+
+    vec4 previous_color = texelFetch(accumulator_texture, ivec2(pixel_center), 0);
+    //vec4 previous_color = texture(accumulator_texture, pixel_center / screen_dimensions);
+
     if(hit){
         // ---- Circle
         if (shape_type == 0) {
+            outColor = previous_color + accumulated_color;
+            // FIXED: Removed code below. Weighted average is computed in color_shader.glsl
+            // outColor = (accumulated_color + previous_color * float(frame_nr)) / (float(frame_nr) + 1.0);
         }
         // ---- Line
         else if (shape_type == 1) {
         }
+    } else {
+        outColor = previous_color;
     }
-    outColor = vec4(0);
+    // outColor = accumulated_color;
 }
