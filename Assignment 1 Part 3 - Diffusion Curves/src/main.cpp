@@ -39,7 +39,7 @@ std::filesystem::path xml_folder(RESOURCE_ROOT "/resources/diffusionCurveXMLs");
 char file_name_buffer[file_name_buffer_size] = "arch.xml";
 
 //The maximum amount curves should be subdivided to fit the lines better.
-int max_curve_subdivision = 0;
+int max_curve_subdivision = 10;  // FIXME: changed from 0 to 10
 
 //Uniform for the maximum distance from a shape to be considered part of it
 float rasterize_width = 0.75f;

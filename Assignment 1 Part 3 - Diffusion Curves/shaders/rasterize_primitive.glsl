@@ -44,7 +44,7 @@ uniform uint shape_type;
 uniform float rasterize_width;
 
 void main()
-{
+{   
     shape_id = -1;
 
     // ---- CIRCLE
@@ -64,5 +64,47 @@ void main()
     }
     // ---- LINE
     else if (shape_type == 1) {
+        vec2 pixel_center = gl_FragCoord.xy;
+
+        for (int i = 0; i < line_count; ++i) {
+            Line line = lines[i];
+            vec2 start = line.start_point;
+            vec2 end = line.end_point;
+        
+            // Distance from pixel to the line's start and end points
+            float dist_to_start = length(pixel_center - start);
+            float dist_to_end = length(pixel_center - end);
+
+            // Check if pixel is within the round cap at the start or end of the line
+            if (dist_to_start <= rasterize_width || dist_to_end <= rasterize_width) {
+                shape_id = i;
+                break;
+            }
+
+            // Vector along the line and from start to pixel
+            vec2 line_vec = end - start;
+            vec2 pixel_vec = pixel_center - start;
+
+            // Projection of pixel_vec onto line_vec to get the closest point on the line
+            float line_length = length(line_vec);
+            vec2 line_direction = normalize(line_vec);
+            float t = dot(pixel_vec, line_direction);  // t = |pixel_vec| cos <pixel_vec, line_vec>
+
+            // Check if the projection falls within the bounds of the line segment
+            if (t >= 0.0 && t <= line_length) {
+                // Closest point on the line segment to the pixel
+                vec2 closest_point = start + t * line_direction;
+
+                // Distance from the pixel to the closest point on the line
+                float dist_to_line = length(pixel_center - closest_point);
+
+                // Check if the pixel is within rasterize_width of the line segment
+                if (dist_to_line <= rasterize_width) {
+                    shape_id = i;
+                    break;
+                }
+            }
+        }
     }
+
 }

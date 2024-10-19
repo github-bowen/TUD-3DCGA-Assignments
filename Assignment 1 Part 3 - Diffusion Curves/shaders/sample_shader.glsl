@@ -1,6 +1,7 @@
 #version 410
 
 #define M_PI 3.14159265359f
+#define EPSILON 0.00001f
 
 // Output for accumulated color
 layout(location = 0) out vec4 outColor;
@@ -19,7 +20,7 @@ struct Circle {
 struct Line {
     vec2 start_point;
     vec2 end_point;
-    vec4 color_left[2];
+    vec4 color_left[2];  // start and end point left color and right color
     vec4 color_right[2];
 };
 
@@ -110,13 +111,47 @@ void main()
     //int shape_index = texture(rasterized_texture, tex_corrds).x;
 
     if (shape_index >= 0) {
-        Circle circle = circles[shape_index];
-        float distance2center = distance(pixel_center, circle.position);
+        if (shape_type == 0) {  // Circle
+            Circle circle = circles[shape_index];
+            float distance2center = distance(pixel_center, circle.position);
 
-        if (distance2center <= circle.radius) {
-            accumulated_color += circle.color;
+            if (distance2center <= circle.radius) {
+                accumulated_color += circle.color;
+                hit = true;
+            }
+        } else {  // line
+            Line line = lines[shape_index];
+            vec2 start = line.start_point;
+            vec2 end = line.end_point;
+
+            // Determine which side of the line is hit
+            vec2 line_direction = normalize(end - start);
+            vec2 pixel_vec = pixel_center - start;
+            float t = dot(pixel_vec, line_direction);
+            float cross_product = line_direction.x * pixel_vec.y - line_direction.y * pixel_vec.x;
+
+            // Select color based on which side the intersection is on
+            float colorRatio = clamp(t, 0.0, 1.0);
+            vec4 blended_color;
+            if (cross_product > 0.0) {
+                // Left side hit
+                //blended_color = line.color_left[0];
+                blended_color = mix(line.color_left[0], line.color_left[1], colorRatio);
+            } else {
+                // Right side hit
+                //blended_color = line.color_right[0];
+                blended_color = mix(line.color_right[0], line.color_right[1], colorRatio);
+            }
+
+            // Calculate the distance between the pixel center and the intersection
+            float distance_to_intersection = distance(pixel_center, intersection);
+            float weight = 1.0 / (distance_to_intersection + EPSILON);  // Add epsilon to avoid division by zero
+
+            // Accumulate the weighted color
+            accumulated_color += blended_color * weight;
             hit = true;
         }
+        
     }
 
     vec4 previous_color = texelFetch(accumulator_texture, ivec2(pixel_center), 0);
@@ -131,6 +166,7 @@ void main()
         }
         // ---- Line
         else if (shape_type == 1) {
+            outColor = previous_color + accumulated_color;
         }
     } else {
         outColor = previous_color;
