@@ -30,4 +30,4 @@ This is an individual assignment consisting of three main components, each worth
 
 ### 3. Assignment 2 (Final Group Project) (40%)
 
-The final group project is not included in this repository; it can be found [here]().
+The final group project is not included in this repository; it can be found [here](https://github.com/github-bowen/TUD-3DCGA-FinalProject).
