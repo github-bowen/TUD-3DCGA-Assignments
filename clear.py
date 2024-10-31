@@ -30,10 +30,12 @@ if __name__ == "__main__":
     # base_directory = input("Enter the base directory to clear 'out/' '.vscode' and '.vs/' folders: ")
     base_directory = "./"
     success, executed = clear_folders(base_directory)
-    print()
     if success and executed:
+        print("--------------------------------------------------")
         print(f"{Fore.GREEN}Clearing complete. All out/ .vscode/ and .vs/ folders have been removed.")
     elif success and not executed:
-        print(f"{Fore.YELLOW}Clearing complete. No out/ .vscode/ or .vs/ folders found.")
+        print(f"{Fore.YELLOW}No need to clear. No out/ .vscode/ or .vs/ folders found.")
     else:
+        if executed:
+            print("--------------------------------------------------")
         print(f"{Fore.YELLOW}Clearing not complete. Some folders could not be removed.")
